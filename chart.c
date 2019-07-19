@@ -207,7 +207,6 @@ void
 wrap_text_out(HDC hdc, int x_text, int *y_text, char *name, int namelen)
 {
     SIZE sz;
-    char *pspace;
 
     GetTextExtentPoint(hdc, name, namelen, &sz);
     if (sz.cx < box_width - 2 * small_space)
@@ -261,8 +260,7 @@ draw_box(HDC hdc, Person *p)
 {
     int x_box = p->offset * (box_width + min_spacing) + (min_spacing / 2) - h_scrollpos;
     int y_box = (p->generation - anc_generations) * (box_height + min_spacing) + (min_spacing / 2) - v_scrollpos;
-    int x_text, y_text, namelen;
-    SIZE sz;
+    int x_text, y_text;
     Event *ev;
     char buf[MAXSTR];
 
@@ -293,9 +291,10 @@ draw_box(HDC hdc, Person *p)
     {
         sprintf_s(buf, MAXSTR, "%s %s", codes[ev->type].display, ev->date);
         wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
-        wrap_text_out(hdc, x_text, &y_text, ev->place, strlen(ev->place));
+        if (ev->place != NULL && ev->place[0] != '\0')
+            wrap_text_out(hdc, x_text, &y_text, ev->place, strlen(ev->place));
     }
-#if 1 // def DEBUG_CHART
+#ifdef DEBUG_CHART
     sprintf_s(buf, MAXSTR, "%d: Off %d Wid %d", p->id, p->offset, p->accum_width);
     wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
 #endif
@@ -883,7 +882,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             hMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_MENUPOPUP));
             cmd = TrackPopupMenu
                 (
-                GetSubMenu(hMenu, 0),
+                GetSubMenu(hMenu, 0),   // person submenu
                 TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON,
                 GET_X_LPARAM(lParam),
                 GET_Y_LPARAM(lParam),

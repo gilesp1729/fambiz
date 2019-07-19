@@ -98,4 +98,5 @@ LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
 BOOL read_ged(char *filename);
+BOOL write_ged(char *filename);
 
