@@ -66,6 +66,7 @@ typedef struct Family
 typedef struct FamilyList
 {
     Family      *f;                 // Pointers to family and the next in list
+    int         family_max_offset;  // While building chart, the max offset of all children to the left
     struct FamilyList  *next;
 } FamilyList;
 

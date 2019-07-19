@@ -52,8 +52,21 @@ FamilyList *new_familylist(Family *f, FamilyList *family_list)
     FamilyList *fl = calloc(1, sizeof(FamilyList));
 
     fl->f = f;
-    fl->next = family_list;
-    return fl;
+    if (family_list == NULL)
+    {
+        fl->next = NULL;
+        return fl;
+    }
+    else
+    {
+        FamilyList *tail;
+
+        // Attach new pl to the tail (ensures file order is kept)
+        for (tail = family_list; tail->next != NULL; tail = tail->next)
+            ;
+        tail->next = fl;
+    }
+    return family_list;
 }
 
 Event *new_event(EVENT type, Event *event_list)

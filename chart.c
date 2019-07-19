@@ -22,7 +22,8 @@ int anc_generations = 0;
 int max_offset = 0;
 int h_scrollpos, v_scrollpos;
 int h_scrollwidth, v_scrollheight;
-Person *highlighted = NULL;
+Person *highlight_person = NULL;
+Family *highlight_family = NULL;
 
 // Zooming and fractions of the fixed widths/heights
 int zoom_percent = 200;
@@ -103,6 +104,7 @@ determine_desc_offsets(Person *p, int gen)
     // Accumulate offsets of children and their descendants depth-first.
     for (fl = p->spouses; fl != NULL; fl = fl->next)
     {
+        fl->family_max_offset = max_offset - 1;
         f = fl->f;
         for (cl = f->children; cl != NULL; cl = cl->next)
         {
@@ -120,11 +122,13 @@ determine_desc_offsets(Person *p, int gen)
     last_offset += MAX(0, p->accum_width / 2 - 1);
     p->offset = last_offset;
 
-    // Set offsets of spouse(s)
+    // Set offsets of spouse(s). Take account of previous family's max offset
     for (fl = p->spouses; fl != NULL; fl = fl->next, last_offset++)
     {
         s = find_spouse(p, fl->f);
         s->accum_width = p->accum_width;
+        if (fl->family_max_offset > last_offset)
+            last_offset = fl->family_max_offset;
         s->offset = last_offset + 1;
     }
 
@@ -264,7 +268,7 @@ draw_box(HDC hdc, Person *p)
     Event *ev;
     char buf[MAXSTR];
 
-    if (p == highlighted)
+    if (p == highlight_person)
         SelectObject(hdc, GetStockObject(LTGRAY_BRUSH));
     else
         SelectObject(hdc, GetStockObject(NULL_BRUSH));
@@ -294,7 +298,7 @@ draw_box(HDC hdc, Person *p)
         if (ev->place != NULL && ev->place[0] != '\0')
             wrap_text_out(hdc, x_text, &y_text, ev->place, strlen(ev->place));
     }
-#ifdef DEBUG_CHART
+#if 1 //def DEBUG_CHART
     sprintf_s(buf, MAXSTR, "%d: Off %d Wid %d", p->id, p->offset, p->accum_width);
     wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
 #endif
@@ -306,7 +310,7 @@ draw_box(HDC hdc, Person *p)
 void
 draw_desc_boxes(HDC hdc, Person *p)
 {
-    Person *c, *s;
+    Person *c, *s, *prev;
     PersonList *cl;
     Family *f;
     FamilyList *fl;
@@ -314,19 +318,39 @@ draw_desc_boxes(HDC hdc, Person *p)
     int x_line, y_line, y_event;
 
     draw_box(hdc, p);
+    prev = p;
     for (fl = p->spouses; fl != NULL; fl = fl->next)
     {
         f = fl->f;
         s = find_spouse(p, f);
         draw_box(hdc, s);
 
+        // highlight the family if required
+        if (f == highlight_family)
+        {
+            HPEN hPenOld = SelectObject(hdc, GetStockObject(NULL_PEN));
+
+            SelectObject(hdc, GetStockObject(LTGRAY_BRUSH));
+            RoundRect
+            (
+                hdc, 
+                prev->xbox + box_width + small_space, 
+                s->ybox + small_space, 
+                s->xbox - small_space, 
+                s->ybox + box_height - small_space, 
+                round_diam, 
+                round_diam
+            );
+            SelectObject(hdc, hPenOld);
+        }
+
         // marriage double lines assume spouses are to the right.
         y_line = s->ybox + box_height / 2;
         MoveToEx(hdc, s->xbox, y_line, NULL);
-        LineTo(hdc, s->xbox - min_spacing - 1, y_line);
+        LineTo(hdc, prev->xbox + box_width - 1, y_line);
         y_line += small_space;
         MoveToEx(hdc, s->xbox, y_line, NULL);
-        LineTo(hdc, s->xbox - min_spacing - 1, y_line);
+        LineTo(hdc, prev->xbox + box_width - 1, y_line);
 
         // draw any marriage/divorce dates.
         y_event = s->ybox + box_height;
@@ -342,11 +366,13 @@ draw_desc_boxes(HDC hdc, Person *p)
         // connect marriage double lines to children.
         if (f->children != NULL)
         {
-            x_line = s->xbox - min_spacing / 2;
+            //x_line = (s->xbox + prev->xbox + box_width) / 2;
+            x_line = s->xbox - min_spacing / 2;                     // TODO this could go the other way for long marriage lines, also do in ancestors
             MoveToEx(hdc, x_line, y_line, NULL);
             y_line = p->ybox + box_height + min_spacing / 2;
             LineTo(hdc, x_line, y_line);
         }
+        prev = s;
 
         // draw children of the family
         for (cl = f->children; cl != NULL; cl = cl->next)
@@ -379,6 +405,25 @@ draw_anc_boxes(HDC hdc, Person *p)
         draw_anc_boxes(hdc, w);
     if (h != NULL && w != NULL)
     {
+        // highlight the family if required
+        if (f == highlight_family)
+        {
+            HPEN hPenOld = SelectObject(hdc, GetStockObject(NULL_PEN));
+
+            SelectObject(hdc, GetStockObject(LTGRAY_BRUSH));
+            RoundRect
+            (
+                hdc,
+                h->xbox + box_width + small_space,
+                w->ybox + small_space,
+                w->xbox - small_space,
+                w->ybox + box_height - small_space,
+                round_diam,
+                round_diam
+            );
+            SelectObject(hdc, hPenOld);
+        }
+
         y_line = h->ybox + box_height / 2;
         MoveToEx(hdc, w->xbox, y_line, NULL);
         LineTo(hdc, h->xbox + box_width - 1, y_line);
@@ -433,6 +478,32 @@ update_scrollbars(HWND hWnd, int max_offset, int num_generations)
 
     // Repaint the window
     InvalidateRect(hWnd, NULL, TRUE);
+}
+
+// Move person by delta X in its offset.
+void
+move_person_by_deltax(Person *p, int dx)
+{
+    FamilyList *fl;
+    PersonList *cl;
+    Person *s;
+    Family *f;
+
+    p->offset += dx;
+    for (fl = p->spouses; fl != NULL; fl = fl->next)
+    {
+        f = fl->f;
+        if (f == NULL)
+            continue;
+#if 1
+        s = find_spouse(p, f);      // TODO this cannot move spouses apart.
+        if (s == NULL)
+            continue;
+        s->offset += dx;
+#endif
+        for (cl = f->children; cl != NULL; cl = cl->next)
+            move_person_by_deltax(cl->p, dx);
+    }
 }
 
 //
@@ -682,7 +753,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         hFontOld = SelectObject(hdc, hFont);
                         hBrushOld = GetStockObject(NULL_BRUSH);
 
-                        highlighted = NULL;  // don't print the gray box
+                        highlight_person = NULL;  // don't print the gray boxes
+                        highlight_family = NULL;
                         if (view_desc)
                             draw_desc_boxes(hdc, root_person);
                         if (view_anc)
@@ -790,15 +862,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         y_move = GET_Y_LPARAM(lParam);
         if (GetCapture() == hWnd)
         {
-            if (highlighted != NULL)
+            if (highlight_person != NULL)
             {
-                int old_offset = highlighted->offset;
+                int move_dx;
 
-                // Dragging a box. We allow a change to the offset (not the generation)
+                // Dragging a person box. We allow a change to the offset (not the generation)
                 h_dragpos += x_move - x_down;
-                highlighted->offset += (h_dragpos + min_spacing / 2) / (box_width + min_spacing);
-                if (highlighted->offset != old_offset)
+                move_dx = (h_dragpos + min_spacing / 2) / (box_width + min_spacing);
+                if (move_dx != 0)
                 {
+                    highlight_person->offset += move_dx;    // not recursive
+                    InvalidateRect(hWnd, NULL, TRUE);
+                    h_dragpos = 0;
+                }
+            }
+            else if (highlight_family != NULL)
+            {
+                // Dragging a family. We allow branch to be moved in X offset only.
+                int move_dx;
+
+                h_dragpos += x_move - x_down;
+                move_dx = (h_dragpos + min_spacing / 2) / (box_width + min_spacing);
+                if (move_dx != 0)
+                {
+                    move_person_by_deltax(highlight_family->husband, move_dx);
                     InvalidateRect(hWnd, NULL, TRUE);
                     h_dragpos = 0;
                 }
@@ -842,10 +929,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         else
         {
             // Not dragging.
-            // Find the person under the mouse and highlight them.
-            Person *old_highlight = highlighted;
+            // Find the person (or family) under the mouse and highlight them.
+            Person *old_highlight_p = highlight_person;
+            Family *old_highlight_f = highlight_family;
 
-            highlighted = NULL;
+            highlight_person = NULL;
+            highlight_family = NULL;
+
             for (i = 0; i <= n_person; i++)
             {
                 Person *p = lookup_person[i];
@@ -856,28 +946,56 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     {
                         if (p->ybox < y_move && y_move < p->ybox + box_height)
                         {
-                            highlighted = p;
+                            highlight_person = p;
                             break;
                         }
                     }
                 }
             }
 
-            if(highlighted != old_highlight)
+            if (highlight_person == NULL)       // look for family hits between husb and wife
+            {
+                for (i = 0; i <= n_family; i++)
+                {
+                    Family *f = lookup_family[i];
+
+                    if (f != NULL && f->husband != NULL && f->wife  != NULL)
+                    {
+                        Person *h = f->husband;
+                        Person *w = f->wife;
+
+                        if (h->ybox < y_move && y_move < h->ybox + box_height)
+                        {
+                            if 
+                            (
+                                h->xbox + box_width < x_move && x_move < w->xbox
+                                ||
+                                w->xbox + box_width < x_move && x_move < h->xbox
+                            )
+                            {
+                                highlight_family = f;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (highlight_person != old_highlight_p || highlight_family != old_highlight_f)
                 InvalidateRect(hWnd, NULL, TRUE);
         }
         break;
 
     case WM_LBUTTONDBLCLK:
-        if (highlighted != NULL)
+        if (highlight_person != NULL)
         {
-            root_person = highlighted;
+            root_person = highlight_person;
             goto generate_chart;
         }
         break;
 
     case WM_CONTEXTMENU:
-        if (highlighted != NULL)
+        if (highlight_person != NULL)
         {
             hMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_MENUPOPUP));
             cmd = TrackPopupMenu
@@ -895,9 +1013,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             switch (cmd)
             {
             case ID_EDIT_MAKE_ROOT:
-                root_person = highlighted;
+                root_person = highlight_person;
                 goto generate_chart;
                 break;
+
+
+
+            }
+        }
+        else if (highlight_family != NULL)
+        {
+            hMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_MENUPOPUP));
+            cmd = TrackPopupMenu
+            (
+                GetSubMenu(hMenu, 1),   // family submenu
+                TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON,
+                GET_X_LPARAM(lParam),
+                GET_Y_LPARAM(lParam),
+                0,
+                hWnd,
+                NULL
+            );
+            DestroyMenu(hMenu);
+
+            switch (cmd)
+            {
 
 
 

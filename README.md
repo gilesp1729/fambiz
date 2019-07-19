@@ -16,13 +16,11 @@ Todos:
 - save view (zoom/scroll/root) with file
 - edit and enter people and family relationships
 - disconnect person or branch and reattach elsewhere
-- move branch (not just a single person)
 - show/hide branches
 
 Issues:
-- families/spousal relationships need to be oldest on left (add to tail when reading)
-- possible GDI resource leak
-- fix spouse separation when multiple spouses have descendants (connecting line collision)
+- (Partial) fix spouse separation when multiple spouses have descendants (connecting line collision)
+- zoom properly about mouse position, and keep root person in view when selecting
 
 Building Fambiz:
 - build from solution (.sln) file in VC 2013 or later
