@@ -18,10 +18,6 @@ Todos:
 - disconnect person or branch and reattach elsewhere
 - show/hide branches
 
-Issues:
-- (Partial) fix spouse separation when multiple spouses have descendants (connecting line collision)
-- zoom properly about mouse position, and keep root person in view when selecting
-
 Building Fambiz:
 - build from solution (.sln) file in VC 2013 or later
 - only need fambiz.exe

@@ -12,6 +12,7 @@
 #define MIN_SPACING     25
 #define ROUND_DIAM      10
 #define CHAR_HEIGHT     8
+#define ZOOM_MULTIPLE   1.2
 
 // Offset array based at the centre - descendants are positive, ancestors negative.
 int offsets[MAX_GEN];
@@ -480,7 +481,7 @@ update_scrollbars(HWND hWnd, int max_offset, int num_generations)
     InvalidateRect(hWnd, NULL, TRUE);
 }
 
-// Move person by delta X in its offset.
+// Move person (and spouse(s) and descendants) by delta X in its offset.
 void
 move_person_by_deltax(Person *p, int dx)
 {
@@ -495,12 +496,10 @@ move_person_by_deltax(Person *p, int dx)
         f = fl->f;
         if (f == NULL)
             continue;
-#if 1
-        s = find_spouse(p, f);      // TODO this cannot move spouses apart.
+        s = find_spouse(p, f);
         if (s == NULL)
             continue;
         s->offset += dx;
-#endif
         for (cl = f->children; cl != NULL; cl = cl->next)
             move_person_by_deltax(cl->p, dx);
     }
@@ -776,23 +775,49 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case ID_VIEW_ZOOMIN:
+            GetClientRect(hWnd, &rc);
+            x_move = rc.left + (rc.right - rc.left) / 2;
+            y_move = rc.top + (rc.bottom - rc.top) / 2;
         zoom_in:
             if (root_person != NULL)
             {
-                zoom_percent *= 1.2;
-                h_scrollpos *= 1.2;
-                v_scrollpos *= 1.2;
+                zoom_percent *= ZOOM_MULTIPLE;
+                h_scrollpos = (h_scrollpos + x_move) * ZOOM_MULTIPLE - x_move;
+                if (h_scrollpos < 0 || h_scrollwidth - (rc.right - rc.left - 1) < 0)
+                    h_scrollpos = 0;
+                else if (h_scrollpos > h_scrollwidth - (rc.right - rc.left - 1))
+                    h_scrollpos = h_scrollwidth - (rc.right - rc.left - 1);
+
+                v_scrollpos = (v_scrollpos + y_move) * ZOOM_MULTIPLE - y_move;
+                if (v_scrollpos < 0 || v_scrollheight - (rc.bottom - rc.top - 1) < 0)
+                    v_scrollpos = 0;
+                else if (v_scrollpos > v_scrollheight - (rc.bottom - rc.top - 1))
+                    v_scrollpos = v_scrollheight - (rc.bottom - rc.top - 1);
+
                 update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
             }
             break;
 
         case ID_VIEW_ZOOMOUT:
+            GetClientRect(hWnd, &rc);
+            x_move = rc.left + (rc.right - rc.left) / 2;
+            y_move = rc.top + (rc.bottom - rc.top) / 2;
         zoom_out:
             if (root_person != NULL)
             {
-                zoom_percent /= 1.2;
-                h_scrollpos /= 1.2;
-                v_scrollpos /= 1.2;
+                zoom_percent /= ZOOM_MULTIPLE;
+                h_scrollpos = (h_scrollpos + x_move) / ZOOM_MULTIPLE - x_move;
+                if (h_scrollpos < 0)
+                    h_scrollpos = 0;
+                else if (h_scrollpos > h_scrollwidth - (rc.right - rc.left - 1))
+                    h_scrollpos = h_scrollwidth - (rc.right - rc.left - 1);
+
+                v_scrollpos = (v_scrollpos + y_move) / ZOOM_MULTIPLE - y_move;
+                if (v_scrollpos < 0)
+                    v_scrollpos = 0;
+                else if (v_scrollpos > v_scrollheight - (rc.bottom - rc.top - 1))
+                    v_scrollpos = v_scrollheight - (rc.bottom - rc.top - 1);
+
                 update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
             }
             break;
@@ -831,6 +856,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_MOUSEWHEEL:
         if (LOWORD(wParam) & MK_CONTROL)
         {
+            GetClientRect(hWnd, &rc);       // needed for zooming code
+            x_move = GET_X_LPARAM(lParam);  // zoom about the mouse position
+            y_move = GET_Y_LPARAM(lParam);
             if ((((int)wParam) >> 16) > 0)   // no HIWORD here as need sign
                 goto zoom_in;
             else
