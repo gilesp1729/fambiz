@@ -631,6 +631,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     root_person->accum_width = desc_accum_width;
                     determine_desc_offsets(root_person, 0);
                 }
+                else
+                {
+                    // Generate all offsets. Replace overwritten accum_widths.
+                    root_person->accum_width = desc_accum_width;
+                    if (view_desc)
+                        determine_desc_offsets(root_person, 0);
+                    root_person->accum_width = anc_accum_width;
+                    if (view_anc)
+                        determine_anc_offsets(root_person, 0);
+                }
             }
             else
             {

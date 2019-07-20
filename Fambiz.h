@@ -2,14 +2,15 @@
 
 #include "resource.h"
 
-#define MAXSTR      128
+#define MAXSTR      256
 #define MAX_PERSON  2048
 #define MAX_FAMILY  2048
+#define MAX_NOTESIZE 4096
 
 // Max generations in total and an offset to the middle of the generation array
 // (must be separately defined as needs to be constant)
-#define MAX_GEN     20
-#define CENTRE_GEN  10
+#define MAX_GEN     30
+#define CENTRE_GEN  15
 
 // Extend this to include all the silly little cases in the GEDCOM event
 typedef enum
@@ -30,12 +31,20 @@ typedef struct Event
     struct Event *next;             // points to next event in list
 } Event;
 
+typedef struct Note
+{
+    struct Note *next;
+    char        note[MAX_NOTESIZE];
+} Note;
+
 typedef struct Person
 {
     int         id;                 // person ID number
     char        rawname[MAXSTR];    // name as read from file (with slashes separating parts)
     char        name[MAXSTR];       // name cleaned up for display/print
     char        sex[2];             // "M", "F" and possibly other values
+    char        occupation[MAXSTR]; // any occupation given
+    Note        *notes;             // List of notes
     Event       *event;             // List of events (birth, death, etc) with dates/places
     struct Family *family;          // Child to family link (the person is a child of this family)
     struct FamilyList *spouses;     // List of one or more families in which the person is a spouse
@@ -58,6 +67,7 @@ typedef struct Family
 {
     int         id;                 // Family ID number
     Event       *event;             // List of events (marriage, divorce, etc) with dates/places
+    Note        *notes;             // List of notes
     Person      *husband;           // Parents
     Person      *wife;
     PersonList  *children;          // List of children

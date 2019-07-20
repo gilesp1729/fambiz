@@ -17,6 +17,7 @@ Todos:
 - edit and enter people and family relationships
 - disconnect person or branch and reattach elsewhere
 - show/hide branches
+- output to PDF with custom page size
 
 Building Fambiz:
 - build from solution (.sln) file in VC 2013 or later

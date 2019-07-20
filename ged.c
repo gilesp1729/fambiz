@@ -78,6 +78,14 @@ Event *new_event(EVENT type, Event *event_list)
     return ev;
 }
 
+Note *new_note(Note *note_list)
+{
+    Note *n = calloc(1, sizeof(Note));
+
+    n->next = note_list;
+    return n;
+}
+
 // Find an existing person (family, etc) and if not found, create it.
 Person *find_person(int id)
 {
@@ -106,7 +114,7 @@ Family *find_family(int id)
 static int
 skip_ged(FILE *ged, int level)
 {
-    char buf[MAXSTR];
+    char buf[MAX_NOTESIZE];
     int chr;
     
     while (1)
@@ -116,7 +124,7 @@ skip_ged(FILE *ged, int level)
             return -1;
         if (chr - '0' <= level)
             return chr - '0';
-        if (fgets(buf, MAXSTR, ged) == NULL)
+        if (fgets(buf, MAX_NOTESIZE, ged) == NULL)
             return -1;
     }
 }
@@ -140,7 +148,7 @@ read_ged(char *filename)
     if (ged == NULL)
         return FALSE;
 
-    fgets(buf, MAXSTR, ged);
+    fgets(buf, MAX_NOTESIZE, ged);
     tag = strtok_s(buf, "\n", &ctxt);
     if (strstr(tag, "0 HEAD") == NULL)     // Read and skip header. Skip any BOM's in the file (we only read ansi)
         goto eof_error;
@@ -149,7 +157,7 @@ read_ged(char *filename)
 
     while (1)
     {
-        fgets(buf, MAXSTR, ged);
+        fgets(buf, MAX_NOTESIZE, ged);
         ref = strtok_s(buf, " \n", &ctxt);
         if (ref[0] == '@')                      // Digest INDI (0 @Innn@ INDI) or FAM (0 @Fnnn@ FAM) record. 
         {
@@ -163,7 +171,7 @@ read_ged(char *filename)
                 skip_ged(ged, 1);       // absorb the first level number
                 while (1)
                 {
-                    fgets(buf, MAXSTR, ged);
+                    fgets(buf, MAX_NOTESIZE, ged);
                     tag = strtok_s(buf, " \n", &ctxt);
 
                     if (strcmp(tag, "SEX") == 0)
@@ -194,6 +202,12 @@ read_ged(char *filename)
                             p->name[i + 1] = '\0';
                         }
                     }
+                    else if (strcmp(tag, "OCCU") == 0)
+                    {
+                        ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
+                        if (ref != NULL)
+                            strcpy_s(p->occupation, MAXSTR, ref);
+                    }
                     else if (strcmp(tag, "DEAT") == 0)
                     {
                         p->event = new_event(EV_DEATH, p->event);
@@ -207,7 +221,7 @@ read_ged(char *filename)
                             break;
                         while (1)
                         {
-                            fgets(buf, MAXSTR, ged);
+                            fgets(buf, MAX_NOTESIZE, ged);
                             tag = strtok_s(buf, " \n", &ctxt);
                             if (strcmp(tag, "DATE") == 0)
                             {
@@ -230,6 +244,43 @@ read_ged(char *filename)
                         else if (lev < 1)
                             break;
                     }
+                    else if (strcmp(tag, "NOTE") == 0)
+                    {
+                        p->notes = new_note(p->notes);
+                        ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces,quotes and XML tags. TODO: strip these
+                        if (ref != NULL)
+                            strcpy_s(p->notes->note, MAX_NOTESIZE, ref);
+
+                        if (skip_ged(ged, 2) < 2)       // handle notes with no level-2 stuff
+                            break;
+                        while (1)
+                        {
+                            fgets(buf, MAX_NOTESIZE, ged);
+                            tag = strtok_s(buf, " \n", &ctxt);
+                            if (strcmp(tag, "CONT") == 0)
+                            {
+                                strcat_s(p->notes->note, MAX_NOTESIZE, "\n");
+                                ref = strtok_s(NULL, "\n", &ctxt);
+                                if (ref != NULL)
+                                    strcat_s(p->notes->note, MAX_NOTESIZE, ref);
+                            }
+                            else if (strcmp(tag, "CONC") == 0)
+                            {
+                                ref = strtok_s(NULL, "\n", &ctxt);
+                                if (ref != NULL)
+                                    strcat_s(p->notes->note, MAX_NOTESIZE, ref);
+                            }
+
+                            lev = skip_ged(ged, 2);
+                            if (lev < 2)
+                                break;
+                        }
+                        if (lev == 1)            // don't skip again at level 1
+                            continue;
+                        else if (lev < 1)
+                            break;
+                    }
+
 #if 0 // Do these linkages when processing the families.
                     else if (strcmp(tag, "FAMS") == 0)
                     {
@@ -252,7 +303,7 @@ read_ged(char *filename)
                 skip_ged(ged, 1);       // absorb the first level number
                 while (1)
                 {
-                    fgets(buf, MAXSTR, ged);
+                    fgets(buf, MAX_NOTESIZE, ged);
                     tag = strtok_s(buf, " \n", &ctxt);
 
                     if (strcmp(tag, "HUSB") == 0)
@@ -292,7 +343,7 @@ read_ged(char *filename)
                             break;
                         while (1)
                         {
-                            fgets(buf, MAXSTR, ged);
+                            fgets(buf, MAX_NOTESIZE, ged);
                             tag = strtok_s(buf, " \n", &ctxt);
                             if (strcmp(tag, "DATE") == 0)
                             {
@@ -316,6 +367,43 @@ read_ged(char *filename)
                         else if (lev < 1)
                             break;
                     }
+                    else if (strcmp(tag, "NOTE") == 0)
+                    {
+                        f->notes = new_note(f->notes);
+                        ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces,quotes and XML tags. TODO: strip these
+                        if (ref != NULL)
+                            strcpy_s(f->notes->note, MAX_NOTESIZE, ref);
+
+                        if (skip_ged(ged, 2) < 2)       // handle notes with no level-2 stuff
+                            break;
+                        while (1)
+                        {
+                            fgets(buf, MAX_NOTESIZE, ged);
+                            tag = strtok_s(buf, " \n", &ctxt);
+                            if (strcmp(tag, "CONT") == 0)
+                            {
+                                strcat_s(f->notes->note, MAX_NOTESIZE, "\n");
+                                ref = strtok_s(NULL, "\n", &ctxt);
+                                if (ref != NULL)
+                                    strcat_s(f->notes->note, MAX_NOTESIZE, ref);
+                            }
+                            else if (strcmp(tag, "CONC") == 0)
+                            {
+                                ref = strtok_s(NULL, "\n", &ctxt);
+                                if (ref != NULL)
+                                    strcat_s(f->notes->note, MAX_NOTESIZE, ref);
+                            }
+
+                            lev = skip_ged(ged, 2);
+                            if (lev < 2)
+                                break;
+                        }
+                        if (lev == 1)            // don't skip again at level 1
+                            continue;
+                        else if (lev < 1)
+                            break;
+                    }
+
                     // TODO other family tags
                     if (skip_ged(ged, 1) < 1)
                         break;
@@ -343,14 +431,17 @@ write_ged(char *filename)
 {
     FILE *ged;
     char buf[MAXSTR];
+    char *ctxt = NULL;
+    char *line;
     Event *ev;
+    Note *n;
     int i;
 
     fopen_s(&ged, filename, "wt");
     if (ged == NULL)
         return FALSE;
 
-    GetDateFormat(LOCALE_SYSTEM_DEFAULT, 0, NULL, "dd MMM yyyy", buf, MAXSTR);
+    GetDateFormat(LOCALE_SYSTEM_DEFAULT, 0, NULL, "dd MMM yyyy", buf, MAX_NOTESIZE);
     fprintf_s(ged, "0 HEAD\n");
     fprintf_s(ged, "1 GEDC\n");
     fprintf_s(ged, "2 VERS 5.5.1\n");
@@ -375,6 +466,8 @@ write_ged(char *filename)
             fprintf_s(ged, "1 NAME %s\n", p->rawname);      // TODO build this from new entries with slashes round surname
         if (p->sex != NULL && p->sex[0] != '\0')
             fprintf_s(ged, "1 SEX %s\n", p->sex);
+        if (p->occupation != NULL && p->occupation[0] != '\0')
+            fprintf_s(ged, "1 OCCU %s\n", p->occupation);
         for (ev = p->event; ev != NULL; ev = ev->next)
         {
             fprintf_s(ged, "1 %s\n", codes[ev->type].code);
@@ -383,6 +476,24 @@ write_ged(char *filename)
             if (ev->place != NULL && ev->place[0] != '\0')
                 fprintf_s(ged, "2 PLAC %s\n", ev->place);
         }
+
+        for (n = p->notes; n != NULL; n = n->next)
+        {
+            if (n->note != NULL && n->note[0] != '\0')
+            {
+                // Don't worry about breaking lines with CONC. Other programs handle them just fine.
+                line = strtok_s(n->note, "\n", &ctxt);
+                if (line != NULL)
+                    fprintf_s(ged, "1 NOTE %s\n", line);
+                while (line != NULL)
+                {
+                    line = strtok_s(NULL, "\n", &ctxt);
+                    if (line != NULL)
+                        fprintf_s(ged, "2 CONT %s\n", line);
+                }
+            }
+        }
+
         if (p->family != NULL)
             fprintf_s(ged, "1 FAMC @F%d@\n", p->family->id);
         for (sl = p->spouses; sl != NULL; sl = sl->next)
@@ -412,6 +523,22 @@ write_ged(char *filename)
             if (ev->place != NULL && ev->place[0] != '\0')
                 fprintf_s(ged, "2 PLAC %s\n", ev->place);
         }
+        for (n = f->notes; n != NULL; n = n->next)
+        {
+            if (n->note != NULL && n->note[0] != '\0')
+            {
+                line = strtok_s(n->note, "\n", &ctxt);
+                if (line != NULL)
+                    fprintf_s(ged, "1 NOTE %s\n", line);
+                while (line != NULL)
+                {
+                    line = strtok_s(NULL, "\n", &ctxt);
+                    if (line != NULL)
+                        fprintf_s(ged, "2 CONT %s\n", line);
+                }
+            }
+        }
+
     }
 
     fprintf_s(ged, "0 TRLR\n");
