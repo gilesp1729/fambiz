@@ -299,7 +299,7 @@ draw_box(HDC hdc, Person *p)
         if (ev->place != NULL && ev->place[0] != '\0')
             wrap_text_out(hdc, x_text, &y_text, ev->place, strlen(ev->place));
     }
-#if 1 //def DEBUG_CHART
+#ifdef DEBUG_CHART
     sprintf_s(buf, MAXSTR, "%d: Off %d Wid %d", p->id, p->offset, p->accum_width);
     wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
 #endif
@@ -538,6 +538,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int h_dragpos;
     static int x_down, y_down;
     int desc_accum_width, anc_accum_width;
+    char buf[MAXSTR];
+    DEVMODE *devmode;
 
     switch (message)
     {
@@ -657,6 +659,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             h_scrollpos = 0;
             v_scrollpos = 0;
             update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);  // anc_generations is negative
+
+            // Update window title to reflect file and chart size
+        update_titlebar:
+            screenx = GetDeviceCaps(GetDC(hWnd), LOGPIXELSX);
+            screeny = GetDeviceCaps(GetDC(hWnd), LOGPIXELSY);
+            pagex = (printsizex * screenx) / printx;
+            n_pagesx = (h_scrollwidth + pagex - 1) / pagex;
+            pagey = (printsizey * screeny) / printy;
+            n_pagesy = (v_scrollheight + pagey - 1) / pagey;
+            devmode = GlobalLock(prd.hDevMode);
+
+            sprintf_s(buf, MAXSTR, "%s (%d by %d, %d by %d %s pages on %s)", 
+                      curr_filename, 
+                      max_offset, desc_generations - anc_generations,
+                      n_pagesx, n_pagesy, devmode->dmFormName, devmode->dmDeviceName);
+            SetWindowText(hWnd, buf);
+            GlobalUnlock(prd.hDevMode);
             break;
 
         case ID_FILE_SAVEAS:
@@ -685,6 +704,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             root_person = NULL;
             curr_filename[0] = '\0';
             InvalidateRect(hWnd, NULL, TRUE);
+            SetWindowText(hWnd, "Family Business");
             break;
 
         case ID_FILE_PAGESETUP:
@@ -700,7 +720,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DeleteDC(prd.hDC);
             if (root_person != NULL)
                 InvalidateRect(hWnd, NULL, TRUE);
-            break;
+            goto update_titlebar;
 
         case ID_FILE_PRINT:
             prd.Flags = PD_RETURNDC;
@@ -782,7 +802,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DeleteDC(hdc);
             h_scrollpos = h_scroll_save;
             v_scrollpos = v_scroll_save;
-            break;
+            goto update_titlebar;
 
         case ID_VIEW_ZOOMIN:
             GetClientRect(hWnd, &rc);
@@ -805,6 +825,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     v_scrollpos = v_scrollheight - (rc.bottom - rc.top - 1);
 
                 update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
+                goto update_titlebar;
             }
             break;
 
@@ -813,7 +834,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             x_move = rc.left + (rc.right - rc.left) / 2;
             y_move = rc.top + (rc.bottom - rc.top) / 2;
         zoom_out:
-            if (root_person != NULL)
+            if (root_person != NULL && zoom_percent > 20)  // stop ill-conditioning when % too small
             {
                 zoom_percent /= ZOOM_MULTIPLE;
                 h_scrollpos = (h_scrollpos + x_move) / ZOOM_MULTIPLE - x_move;
@@ -829,6 +850,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     v_scrollpos = v_scrollheight - (rc.bottom - rc.top - 1);
 
                 update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
+                goto update_titlebar;
             }
             break;
 
