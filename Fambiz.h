@@ -41,8 +41,8 @@ typedef struct Note
 typedef struct Person
 {
     int         id;                 // person ID number
-    char        rawname[MAXSTR];    // name as read from file (with slashes separating parts)
-    char        name[MAXSTR];       // name cleaned up for display/print
+    char        surname[MAXSTR];    // surname, no spaces, cleaned up for display/print
+    char        given[MAXSTR];      // given names (may contain spaces)
     char        sex[2];             // "M", "F" and possibly other values
     char        occupation[MAXSTR]; // any occupation given
     Note        *notes;             // List of notes

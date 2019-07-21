@@ -182,24 +182,15 @@ read_ged(char *filename)
                     }
                     else if (strcmp(tag, "NAME") == 0)
                     {
-                        int i, namelen;
-
-                        ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
+                        ref = strtok_s(NULL, "/\n", &ctxt);  // Note: can contain spaces. Slashes separate given and surname.
                         if (ref != NULL)
                         {
-                            strcpy_s(p->rawname, MAXSTR, ref);
-                            strcpy_s(p->name, MAXSTR, ref);
+                            strcpy_s(p->given, MAXSTR, ref);
 
-                            // Strip slashes from name. They convey no useful information.
-                            namelen = strlen(p->name);
-                            for (i = 0; i < namelen; i++)
-                            {
-                                if (p->name[i] == '/')
-                                    p->name[i] = ' ';
-                            }
-                            while (p->name[--i] == ' ')     // Strip resulting trailing spaces.
-                                ;
-                            p->name[i + 1] = '\0';
+                            // Strip slashes from name. 
+                            ref = strtok_s(NULL, "/\n", &ctxt);
+                            if (ref != NULL)
+                                strcpy_s(p->surname, MAXSTR, ref);
                         }
                     }
                     else if (strcmp(tag, "OCCU") == 0)
@@ -468,8 +459,8 @@ write_ged(char *filename)
             continue;
 
         fprintf_s(ged, "0 @I%d@ INDI\n", p->id);
-        if (p->rawname != NULL && p->rawname[0] != '\0')
-            fprintf_s(ged, "1 NAME %s\n", p->rawname);      // TODO build this from new entries with slashes round surname
+        if (p->given != NULL && p->surname != NULL)
+            fprintf_s(ged, "1 NAME %s/%s/\n", p->given, p->surname);
         if (p->sex != NULL && p->sex[0] != '\0')
             fprintf_s(ged, "1 SEX %s\n", p->sex);
         if (p->occupation != NULL && p->occupation[0] != '\0')

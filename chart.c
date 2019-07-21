@@ -291,7 +291,8 @@ draw_box(HDC hdc, Person *p)
     }
 
     // Wrap text at the surname if it won't fit.
-    wrap_text_out(hdc, x_text, &y_text, p->name, strlen(p->name));
+    sprintf_s(buf, MAXSTR, "%s %s", p->given, p->surname);
+    wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
     for (ev = p->event; ev != NULL; ev = ev->next)
     {
         sprintf_s(buf, MAXSTR, "%s %s", codes[ev->type].display, ev->date);
