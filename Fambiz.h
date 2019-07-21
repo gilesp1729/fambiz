@@ -28,6 +28,7 @@ typedef struct Event
     EVENT       type;               // What is this (birth, marriage, etc)
     char        date[MAXSTR];       // date and place if known
     char        place[MAXSTR];
+    char        cause[MAXSTR];      // cause (of death)
     struct Event *next;             // points to next event in list
 } Event;
 
@@ -48,6 +49,7 @@ typedef struct Person
     Event       *event;             // List of events (birth, death, etc) with dates/places
     struct Family *family;          // Child to family link (the person is a child of this family)
     struct FamilyList *spouses;     // List of one or more families in which the person is a spouse
+    BOOL        hidden;             // person and their descendants/ancestors are hidden in chart
 
     // Chart-related calculated data
     int         generation;         // 0 = the root, 1,2,3 = descendant generations below root, -1,-2 = ancestors
@@ -71,6 +73,7 @@ typedef struct Family
     Person      *husband;           // Parents
     Person      *wife;
     PersonList  *children;          // List of children
+    BOOL        hidden;             // descendents/ancestors are hidden in chart
 } Family;
 
 typedef struct FamilyList
@@ -106,7 +109,9 @@ extern Code codes[];
 
 // Declarations
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK    person_dialog(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK    family_dialog(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
 BOOL read_ged(char *filename);
 BOOL write_ged(char *filename);

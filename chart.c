@@ -1055,8 +1055,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 goto generate_chart;
                 break;
 
+            case ID_EDIT_SHOWHIDE:
 
+                break;
 
+            case ID_EDIT_PERSON:
+                if (DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)highlight_person) == IDOK)
+                    InvalidateRect(hWnd, NULL, TRUE);
+                break;
+
+            case ID_EDIT_ADDSPOUSE:
+
+                break;
+
+            case ID_EDIT_ADDPARENT:
+
+                break;
             }
         }
         else if (highlight_family != NULL)
@@ -1076,9 +1090,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             switch (cmd)
             {
+            case ID_EDIT_SHOWHIDE:
 
+                break;
 
+            case ID_EDIT_FAMILY:
+                if (DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_FAMILY), hWnd, family_dialog, (LPARAM)highlight_family) == IDOK)
+                    InvalidateRect(hWnd, NULL, TRUE);
+                break;
 
+            case ID_EDIT_ADDCHILD:
+
+                break;
             }
         }
         break;

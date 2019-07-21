@@ -83,6 +83,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="chart.c" />
+    <ClCompile Include="dialogs.c" />
     <ClCompile Include="Fambiz.c" />
     <ClCompile Include="ged.c" />
     <ClCompile Include="stdafx.c">
