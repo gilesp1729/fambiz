@@ -69,12 +69,17 @@ FamilyList *new_familylist(Family *f, FamilyList *family_list)
     return family_list;
 }
 
-Event *new_event(EVENT type, Event *event_list)
+// Create a new event and add it to the tail of the given list.
+Event *new_event(EVENT type, Event **event_list)
 {
     Event *ev = calloc(1, sizeof(Event));
 
     ev->type = type;
-    ev->next = event_list;
+    ev->next = NULL;
+    if (*event_list == NULL)
+        *event_list = ev;
+    else
+        (*event_list)->next = ev;
     return ev;
 }
 
@@ -86,7 +91,7 @@ Note *new_note(Note *note_list)
     return n;
 }
 
-// Find an existing person (family, etc) and if not found, create it.
+// Find an existing person (family, etc) and if not found, create it and add it to the lookup arrays.
 Person *find_person(int id)
 {
     Person *p = lookup_person[id];
@@ -105,6 +110,41 @@ Family *find_family(int id)
         return f;
     else
         return new_family(id);
+}
+
+// Find an event in the list, or create one and add it to the tail of the list.
+// Return the event found or created, and possibly modify event_list (for the first one)
+Event *find_event(EVENT type, Event **event_list)
+{
+    Event *ev;
+
+    for (ev = *event_list; ev != NULL; ev = ev->next)
+    {
+        if (ev->type == type)
+            return ev;
+    }
+    return new_event(type, event_list);
+}
+
+// Remove an event of the given type from the list, if it exists.
+void remove_event(EVENT type, Event **event_list)
+{
+    Event *ev;
+    Event *prev = NULL;
+
+    for (ev = *event_list; ev != NULL; prev = ev, ev = ev->next)
+    {
+        if (ev->type == type)
+        {
+            if (prev == NULL)   // first in list
+                *event_list = ev->next;
+            else
+                prev->next = ev->next;
+
+            free(ev);
+            return;
+        }
+    }
 }
 
 // Skip forward in a GEDCOM file to the next record at a given level.
@@ -137,6 +177,7 @@ read_ged(char *filename)
     char buf[MAXSTR], *ref, *tag;
     int id;
     char *ctxt = NULL;
+    Event *ev;
 
     // Clear lookup arrays to NULL pointers.
     n_person = 0;
@@ -185,7 +226,12 @@ read_ged(char *filename)
                         ref = strtok_s(NULL, "/\n", &ctxt);  // Note: can contain spaces. Slashes separate given and surname.
                         if (ref != NULL)
                         {
+                            int namelen;
+
                             strcpy_s(p->given, MAXSTR, ref);
+                            namelen = strlen(p->given) - 1;
+                            if (p->given[namelen] == ' ')
+                                p->given[namelen] = '\0';   // strip trailing space
 
                             // Strip slashes from name. 
                             ref = strtok_s(NULL, "/\n", &ctxt);
@@ -201,12 +247,12 @@ read_ged(char *filename)
                     }
                     else if (strcmp(tag, "DEAT") == 0)
                     {
-                        p->event = new_event(EV_DEATH, p->event);
+                        ev = new_event(EV_DEATH, &p->event);
                         goto i_event_common;              // Yucky goto but saves a lot of mucking about.
                     }
                     else if (strcmp(tag, "BIRT") == 0)
                     {
-                        p->event = new_event(EV_BIRTH, p->event);
+                        ev = new_event(EV_BIRTH, &p->event);
                     i_event_common:
                         if (skip_ged(ged, 2) < 2)       // handle events with no level-2 stuff
                             break;
@@ -218,19 +264,19 @@ read_ged(char *filename)
                             {
                                 ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
                                 if (ref != NULL)
-                                    strcpy_s(p->event->date, MAXSTR, ref);
+                                    strcpy_s(ev->date, MAXSTR, ref);
                             }
                             else if (strcmp(tag, "PLAC") == 0)
                             {
                                 ref = strtok_s(NULL, "\n", &ctxt);
                                 if (ref != NULL)
-                                    strcpy_s(p->event->place, MAXSTR, ref);
+                                    strcpy_s(ev->place, MAXSTR, ref);
                             }
                             else if (strcmp(tag, "CAUS") == 0)
                             {
                                 ref = strtok_s(NULL, "\n", &ctxt);
                                 if (ref != NULL)
-                                    strcpy_s(p->event->cause, MAXSTR, ref);
+                                    strcpy_s(ev->cause, MAXSTR, ref);
                             }
                             lev = skip_ged(ged, 2);
                             if (lev < 2)
@@ -329,12 +375,12 @@ read_ged(char *filename)
                     }
                     else if (strcmp(tag, "MARR") == 0)
                     {
-                        f->event = new_event(EV_MARRIAGE, f->event);
+                        ev = new_event(EV_MARRIAGE, &f->event);
                         goto f_event_common;
                     }
                     else if (strcmp(tag, "DIV") == 0)
                     {
-                        f->event = new_event(EV_DIVORCE, f->event);
+                        ev = new_event(EV_DIVORCE, &f->event);
                     f_event_common:
                         if (skip_ged(ged, 2) < 2)       // handle events with no level-2 stuff
                             break;
@@ -346,13 +392,13 @@ read_ged(char *filename)
                             {
                                 ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
                                 if (ref != NULL)
-                                    strcpy_s(f->event->date, MAXSTR, ref);
+                                    strcpy_s(ev->date, MAXSTR, ref);
                             }
                             else if (strcmp(tag, "PLAC") == 0)
                             {
                                 ref = strtok_s(NULL, "\n", &ctxt);
                                 if (ref != NULL)
-                                    strcpy_s(f->event->place, MAXSTR, ref);
+                                    strcpy_s(ev->place, MAXSTR, ref);
                             }
                             lev = skip_ged(ged, 2);
                             if (lev < 2)
@@ -459,8 +505,12 @@ write_ged(char *filename)
             continue;
 
         fprintf_s(ged, "0 @I%d@ INDI\n", p->id);
-        if (p->given != NULL && p->surname != NULL)
-            fprintf_s(ged, "1 NAME %s/%s/\n", p->given, p->surname);
+
+        if (p->given != NULL && p->given[0] != '\0')
+        {
+            if (p->surname != NULL && p->surname[0] != '\0')
+                fprintf_s(ged, "1 NAME %s /%s/\n", p->given, p->surname);
+        }
         if (p->sex != NULL && p->sex[0] != '\0')
             fprintf_s(ged, "1 SEX %s\n", p->sex);
         if (p->occupation != NULL && p->occupation[0] != '\0')

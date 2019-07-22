@@ -107,12 +107,25 @@ extern Code codes[];
 // Macros
 #define MAX(a, b)   ((a) > (b) ? (a) : (b))
 
-// Declarations
+// chart.c
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
+
+// dialogs.c
 LRESULT CALLBACK    person_dialog(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK    family_dialog(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
+// ged.c
 BOOL read_ged(char *filename);
 BOOL write_ged(char *filename);
-
+Person *new_person(int id);
+PersonList *new_personlist(Person *p, PersonList *person_list);
+Family *new_family(int id);
+FamilyList *new_familylist(Family *f, FamilyList *family_list);
+Event *new_event(EVENT type, Event **event_list);
+Note *new_note(Note *note_list);
+Person *find_person(int id);
+Family *find_family(int id);
+Event *find_event(EVENT type, Event **event_list);
+void remove_event(EVENT type, Event **event_list);

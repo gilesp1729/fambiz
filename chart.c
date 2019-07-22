@@ -1083,15 +1083,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
 
             case ID_EDIT_PERSON:
-                if (DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)highlight_person) == IDOK)
+                cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)highlight_person);
+                switch (cmd)
+                {
+                case IDCANCEL:
+                    break;
+                case IDOK:
                     InvalidateRect(hWnd, NULL, TRUE);
+                    break;
+                case ID_PERSON_ADDSPOUSE:
+                    goto add_spouse;
+                case ID_PERSON_ADDPARENT:
+                    goto add_parent;
+                }
                 break;
 
             case ID_EDIT_ADDSPOUSE:
+            add_spouse:
 
                 break;
 
             case ID_EDIT_ADDPARENT:
+            add_parent:
 
                 break;
             }
@@ -1118,11 +1131,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
 
             case ID_EDIT_FAMILY:
-                if (DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_FAMILY), hWnd, family_dialog, (LPARAM)highlight_family) == IDOK)
+                cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_FAMILY), hWnd, family_dialog, (LPARAM)highlight_family);
+                switch (cmd)
+                {
+                case IDCANCEL:
+                    break;
+                case IDOK:
                     InvalidateRect(hWnd, NULL, TRUE);
+                    break;
+                case ID_FAMILY_ADDCHILD:
+                    goto add_child;
+                }
                 break;
 
             case ID_EDIT_ADDCHILD:
+            add_child:
 
                 break;
             }
