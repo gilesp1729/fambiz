@@ -14,7 +14,8 @@ Code    codes[] =
     { "BIRT", EV_BIRTH, "Born" },
     { "DEAT", EV_DEATH, "Died" },
     { "MARR", EV_MARRIAGE, "Marr." },
-    { "DIV", EV_DIVORCE, "Div." }
+    { "DIV", EV_DIVORCE, "Div." },
+    { "BURI", EV_BURIAL, "Buried" }
 };
 
 // Global Variables:

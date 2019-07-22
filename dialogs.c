@@ -26,10 +26,12 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         SetDlgItemText(hDlg, IDC_EDIT_OCCUPATION, p->occupation);
         EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DEATH_DATE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DEATH_PLACE), FALSE);
+        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BURIAL_PLACE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DEATH_CAUSE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DEATH_DATE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DEATH_PLACE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DEATH_CAUSE), FALSE);
+        EnableWindow(GetDlgItem(hDlg, IDC_STATIC_BURIAL_PLACE), FALSE);
 
         for (ev = p->event; ev != NULL; ev = ev->next)
         {
@@ -51,6 +53,19 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 SetDlgItemText(hDlg, IDC_EDIT_DEATH_PLACE, ev->place);
                 SetDlgItemText(hDlg, IDC_EDIT_DEATH_CAUSE, ev->cause);
             }
+            else if (ev->type == EV_BURIAL)
+            {
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BURIAL_PLACE), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_STATIC_BURIAL_PLACE), TRUE);
+                SetDlgItemText(hDlg, IDC_EDIT_BURIAL_PLACE, ev->place);
+            }
+        }
+
+        // cope with dead people that have no burial event
+        if (IsDlgButtonChecked(hDlg, IDC_CHECK_DECEASED))
+        {
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BURIAL_PLACE), TRUE);
+            EnableWindow(GetDlgItem(hDlg, IDC_STATIC_BURIAL_PLACE), TRUE);
         }
         return 1;
 
@@ -78,7 +93,7 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             nc = GetDlgItemText(hDlg, IDC_EDIT_DEATH_CAUSE, cause, MAXSTR);
             if (nd != 0 || np != 0 || nc != 0 || IsDlgButtonChecked(hDlg, IDC_CHECK_DECEASED))
             {
-                // If there is data for death, and the box is ticked, add/edit an event record. Otherwise, remove it.
+                // If there is data for death, or the box is ticked, add/edit an event record. Otherwise, remove it.
                 ev = find_event(EV_DEATH, &p->event);
                 strcpy_s(ev->date, MAXSTR, date);
                 strcpy_s(ev->place, MAXSTR, place);
@@ -87,6 +102,17 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             else
             {
                 remove_event(EV_DEATH, &p->event);
+            }
+
+            np = GetDlgItemText(hDlg, IDC_EDIT_BURIAL_PLACE, place, MAXSTR);
+            if (np != 0)    // don't check button. We don't want a burial event if there is no place given.
+            {
+                ev = find_event(EV_BURIAL, &p->event);
+                strcpy_s(ev->place, MAXSTR, place);
+            }
+            else
+            {
+                remove_event(EV_BURIAL, &p->event);
             }
             // fall through
         case IDCANCEL:
@@ -102,9 +128,11 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DEATH_DATE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DEATH_PLACE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DEATH_CAUSE), checked);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BURIAL_PLACE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DEATH_DATE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DEATH_PLACE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DEATH_CAUSE), checked);
+            EnableWindow(GetDlgItem(hDlg, IDC_STATIC_BURIAL_PLACE), checked);
         }
         break;
     }
@@ -172,7 +200,7 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             np = GetDlgItemText(hDlg, IDC_EDIT_MARR_PLACE, place, MAXSTR);
             if (nd != 0 || np != 0 || IsDlgButtonChecked(hDlg, IDC_CHECK_MARR))
             {
-                // If there is data for a marriage, and the box is ticked, add/edit an event record. Otherwise, remove it.
+                // If there is data for a marriage, or the box is ticked, add/edit an event record. Otherwise, remove it.
                 ev = find_event(EV_MARRIAGE, &f->event);
                 strcpy_s(ev->date, MAXSTR, date);
                 strcpy_s(ev->place, MAXSTR, place);

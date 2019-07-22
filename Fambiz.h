@@ -18,7 +18,8 @@ typedef enum
     EV_BIRTH,
     EV_DEATH,
     EV_MARRIAGE,
-    EV_DIVORCE
+    EV_DIVORCE,
+    EV_BURIAL
 } EVENT;
 
 // Data structures to represent persons and families.

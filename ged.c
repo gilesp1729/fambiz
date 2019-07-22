@@ -73,13 +73,20 @@ FamilyList *new_familylist(Family *f, FamilyList *family_list)
 Event *new_event(EVENT type, Event **event_list)
 {
     Event *ev = calloc(1, sizeof(Event));
+    Event *tail;
 
     ev->type = type;
     ev->next = NULL;
     if (*event_list == NULL)
+    {
         *event_list = ev;
+    }
     else
-        (*event_list)->next = ev;
+    {
+        for (tail = *event_list; tail->next != NULL; tail = tail->next)
+            ;
+        tail->next = ev;
+    }
     return ev;
 }
 
@@ -249,6 +256,11 @@ read_ged(char *filename)
                     {
                         ev = new_event(EV_DEATH, &p->event);
                         goto i_event_common;              // Yucky goto but saves a lot of mucking about.
+                    }
+                    else if (strcmp(tag, "BURI") == 0)
+                    {
+                        ev = new_event(EV_BURIAL, &p->event);
+                        goto i_event_common; 
                     }
                     else if (strcmp(tag, "BIRT") == 0)
                     {
@@ -490,7 +502,7 @@ write_ged(char *filename)
     fprintf_s(ged, "2 VERS 5.5.1\n");
     fprintf_s(ged, "2 FORM LINEAGE-LINKED\n");
     fprintf_s(ged, "1 DATE %s\n", buf);
-    fprintf_s(ged, "1 CHAR ANSI\n");
+    fprintf_s(ged, "1 CHAR ASCII\n");
     fprintf_s(ged, "1 LANG English\n");
     fprintf_s(ged, "1 SOUR FAMBIZ\n");
     fprintf_s(ged, "2 NAME Family Business\n");
