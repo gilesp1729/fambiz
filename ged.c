@@ -3,7 +3,9 @@
 #include <stdio.h>
 
 // New person and fam structures.
-Person *new_person(int id)
+
+// Create a new person with the given ID. 
+Person *new_person_by_id(int id)
 {
     Person *p = calloc(1, sizeof(Person));
 
@@ -14,6 +16,27 @@ Person *new_person(int id)
     return p;
 }
 
+// Create a new person (with the next available ID) but don't link it in yet.
+// It must be either registered or simply freed.
+Person *new_person(CREATESTATE state)
+{
+    Person *p = calloc(1, sizeof(Person));
+
+    p->id = n_person + 1;
+    p->state = state;
+    return p;
+}
+
+// Put a new person on the lookup array.
+void register_person(Person *p)
+{
+    lookup_person[p->id] = p;
+    p->state = STATE_EXISTING;
+    if (p->id > n_person)
+        n_person = p->id;
+}
+
+// Create a person list struct and attach it to the tail. Return the head.
 PersonList *new_personlist(Person *p, PersonList *person_list)
 {
     PersonList *pl = calloc(1, sizeof(PersonList));
@@ -36,7 +59,8 @@ PersonList *new_personlist(Person *p, PersonList *person_list)
     return person_list;
 }
 
-Family *new_family(int id)
+// Family calls analogous to the above person calls.
+Family *new_family_by_id(int id)
 {
     Family *f = calloc(1, sizeof(Family));
 
@@ -45,6 +69,23 @@ Family *new_family(int id)
     if (id > n_family)
         n_family = id;      // Note: ID's start at 1, so n_family is the last one found
     return f;
+}
+
+Family *new_family(void)
+{
+    Family *f = calloc(1, sizeof(Family));
+
+    f->id = n_family + 1;
+    f->state = STATE_NEW_FAMILY;
+    return f;
+}
+
+void register_family(Family *f)
+{
+    lookup_family[f->id] = f;
+    f->state = STATE_EXISTING;
+    if (f->id > n_family)
+        n_family = f->id;
 }
 
 FamilyList *new_familylist(Family *f, FamilyList *family_list)
@@ -106,7 +147,7 @@ Person *find_person(int id)
     if (p != NULL)
         return p;
     else
-        return new_person(id);
+        return new_person_by_id(id);
 }
 
 Family *find_family(int id)
@@ -116,7 +157,7 @@ Family *find_family(int id)
     if (f != NULL)
         return f;
     else
-        return new_family(id);
+        return new_family_by_id(id);
 }
 
 // Find an event in the list, or create one and add it to the tail of the list.

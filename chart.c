@@ -1058,7 +1058,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CONTEXTMENU:
         if (highlight_person != NULL)
         {
+            Person *p, *p2;
+            Family *f;
+
+            // Load menu and block nonsensical actions
             hMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_MENUPOPUP));
+
+            // Block add parent if family not NULL, add sibling if family is NULL
+            EnableMenuItem(GetSubMenu(hMenu, 0), ID_EDIT_ADDPARENT,
+                           highlight_person->family != NULL ? MF_GRAYED : MF_ENABLED);
+            EnableMenuItem(GetSubMenu(hMenu, 0), ID_EDIT_ADDSIBLING,
+                           highlight_person->family == NULL ? MF_GRAYED : MF_ENABLED);
+
+            // Track the menu
             cmd = TrackPopupMenu
                 (
                 GetSubMenu(hMenu, 0),   // person submenu
@@ -1095,22 +1107,92 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     goto add_spouse;
                 case ID_PERSON_ADDPARENT:
                     goto add_parent;
+                case ID_PERSON_ADDSIBLING:
+                    goto add_sibling;
                 }
                 break;
 
             case ID_EDIT_ADDSPOUSE:
             add_spouse:
+                // Preload sex for M or F and the family connections. 
+                p = new_person(STATE_NEW_SPOUSE);
+                f = new_family();
+                if (highlight_person->sex[0] == 'F')
+                {
+                    strcpy_s(p->sex, MAXSTR, "M");
+                    f->wife = highlight_person;
+                    f->husband = p;
+                }
+                else
+                {
+                    strcpy_s(p->sex, MAXSTR, "F");
+                    f->wife = p;
+                    f->husband = highlight_person;
+                }
+                cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)p);
+                if (cmd == IDCANCEL)
+                {
+                    free(p);
+                    free(f);
+                    break;
+                }
+                register_person(p);
+                register_family(f);
+                p->spouses = new_familylist(f, p->spouses);
+                highlight_person->spouses = new_familylist(f, highlight_person->spouses);
 
-                break;
+                // TODO other button actions here, then...
+                goto generate_chart;
 
             case ID_EDIT_ADDPARENT:
             add_parent:
+                p = new_person(STATE_NEW_PARENT);
+                cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)p);
+                if (cmd == IDCANCEL)
+                {
+                    free(p);
+                    break;
+                }
+                register_person(p);
+                f = new_family();
+                register_family(f);
+                p2 = new_person(STATE_NEW_PARENT);
+                register_person(p2);
 
-                break;
+                if (p->sex[0] == 'F')
+                {
+                    f->wife = p;
+                    f->husband = p2;
+                    p2->sex[0] = 'M';
+                }
+                else
+                {
+                    f->husband = p;
+                    f->wife = p2;
+                    p2->sex[0] = 'F';
+                }
+                p->spouses = new_familylist(f, p->spouses);
+                p2->spouses = new_familylist(f, p2->spouses);
+                highlight_person->family = f;
+                f->children = new_personlist(highlight_person, f->children);
+
+                // TODO other button actions here, then...
+                goto generate_chart;
+
+            case ID_EDIT_ADDSIBLING:
+            add_sibling:
+
+
+
+
+
+                goto generate_chart;
             }
         }
         else if (highlight_family != NULL)
         {
+            Person *p;
+
             hMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_MENUPOPUP));
             cmd = TrackPopupMenu
             (
@@ -1146,8 +1228,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             case ID_EDIT_ADDCHILD:
             add_child:
+                // Preload surname from husband of family.
+                p = new_person(STATE_NEW_CHILD);
+                strcpy_s(p->surname, MAXSTR, highlight_family->husband->surname);
+                cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)p);
+                if (cmd == IDCANCEL)
+                {
+                    free(p);
+                    break;
+                }
+                register_person(p);
+                p->family = highlight_family;
+                highlight_family->children = new_personlist(p, highlight_family->children);
 
-                break;
+                // TODO other button actions here, then...
+                goto generate_chart;
             }
         }
         break;

@@ -22,6 +22,17 @@ typedef enum
     EV_BURIAL
 } EVENT;
 
+// When creating a new person/family, set this state to tell the dialog routine which button
+// we have come from.
+typedef enum
+{
+    STATE_EXISTING = 0,             // An existing person/family in the tree.
+    STATE_NEW_FAMILY,               // A new family (created with Add Spouse or Add Parent)
+    STATE_NEW_CHILD,                // A new child of a family (Add Child...)
+    STATE_NEW_SPOUSE,               // A new spouse of a person (Add Spouse...)
+    STATE_NEW_PARENT                // A new parent of a person (Add Parent...)
+} CREATESTATE;
+
 // Data structures to represent persons and families.
 
 typedef struct Event
@@ -51,6 +62,7 @@ typedef struct Person
     struct Family *family;          // Child to family link (the person is a child of this family)
     struct FamilyList *spouses;     // List of one or more families in which the person is a spouse
     BOOL        hidden;             // person and their descendants/ancestors are hidden in chart
+    CREATESTATE state;              // Indicates this person is being created new and is not in the tree yet.
 
     // Chart-related calculated data
     int         generation;         // 0 = the root, 1,2,3 = descendant generations below root, -1,-2 = ancestors
@@ -75,6 +87,7 @@ typedef struct Family
     Person      *wife;
     PersonList  *children;          // List of children
     BOOL        hidden;             // descendents/ancestors are hidden in chart
+    CREATESTATE state;              // Indicates this family is being created new and is not in the tree yet.
 } Family;
 
 typedef struct FamilyList
@@ -120,9 +133,13 @@ LRESULT CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 // ged.c
 BOOL read_ged(char *filename);
 BOOL write_ged(char *filename);
-Person *new_person(int id);
+Person *new_person_by_id(int id);
+Person *new_person(CREATESTATE state);
+void register_person(Person *p);
 PersonList *new_personlist(Person *p, PersonList *person_list);
-Family *new_family(int id);
+Family *new_family_by_id(int id);
+Family *new_family(void);
+void register_family(Family *f);
 FamilyList *new_familylist(Family *f, FamilyList *family_list);
 Event *new_event(EVENT type, Event **event_list);
 Note *new_note(Note *note_list);

@@ -67,6 +67,37 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_BURIAL_PLACE), TRUE);
             EnableWindow(GetDlgItem(hDlg, IDC_STATIC_BURIAL_PLACE), TRUE);
         }
+
+        // modify title and enabled buttons, depending on who we are editing here
+        switch (p->state)
+        {
+        case STATE_EXISTING:
+            break;              // all OK leave it alone
+        case STATE_NEW_CHILD:
+            SetWindowText(hDlg, "Edit New Child");
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDPARENT), FALSE);
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDSPOUSE), FALSE);
+            break;
+        case STATE_NEW_PARENT:
+            SetWindowText(hDlg, "Edit New Parent");
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDPARENT), FALSE);
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDSPOUSE), FALSE);
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDSIBLING), FALSE);
+            break;
+        case STATE_NEW_SPOUSE:
+            SetWindowText(hDlg, "Edit New Spouse");
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDPARENT), FALSE);
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDSPOUSE), FALSE);
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDSIBLING), FALSE);
+            break;
+        }
+
+        // block nonsensical actions
+        if (p->family != NULL)
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDPARENT), FALSE);
+        else
+            EnableWindow(GetDlgItem(hDlg, ID_PERSON_ADDSIBLING), FALSE);
+
         return 1;
 
     case WM_COMMAND:
@@ -75,6 +106,7 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         case IDOK:
         case ID_PERSON_ADDSPOUSE:
         case ID_PERSON_ADDPARENT:
+        case ID_PERSON_ADDSIBLING:
             GetDlgItemText(hDlg, IDC_EDIT_GIVEN, p->given, MAXSTR);
             GetDlgItemText(hDlg, IDC_EDIT_SURNAME, p->surname, MAXSTR);
             p->sex[1] = '\0';    // sex is only one letter
