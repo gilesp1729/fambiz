@@ -35,6 +35,9 @@ int round_diam;
 int small_space;
 int char_height;
 
+// Limit generations in ancestors/descendants. (0 = no limit)
+int desc_limit = 0;
+int anc_limit = 0;
 
 // Find a spouse for p in family f.
 Person *find_spouse(Person *p, Family *f)
@@ -56,6 +59,9 @@ determine_desc_widths(Person *p, int gen)
     Family *f;
     FamilyList *fl;
     int child_width;
+
+    if (desc_limit != 0 && gen > desc_limit)
+        return;
 
     p->generation = gen;
 
@@ -101,6 +107,9 @@ determine_desc_offsets(Person *p, int gen)
     FamilyList *fl;
     int last_offset;
     int prev_max_offset = max_offset;
+
+    if (desc_limit != 0 && gen > desc_limit)
+        return;
 
     // Accumulate offsets of children and their descendants depth-first.
     for (fl = p->spouses; fl != NULL; fl = fl->next)
@@ -150,6 +159,9 @@ determine_anc_widths(Person *p, int gen)
     int parent_width = 0;
     Family *f = p->family;
 
+    if (anc_limit != 0 && -gen > anc_limit)
+        return;
+
     p->generation = gen;
     p->accum_width = 1;
 
@@ -179,6 +191,9 @@ determine_anc_offsets(Person *p, int gen)
 {
     Family *f = p->family;
     int last_offset;
+
+    if (anc_limit != 0 && -gen > anc_limit)
+        return;
 
     if (f != NULL)
     {
@@ -365,26 +380,29 @@ draw_desc_boxes(HDC hdc, Person *p)
             y_event += char_height;
         }
 
-        // connect marriage double lines to children.
-        if (f->children != NULL)
+        if (desc_limit == 0 || p->generation < desc_limit)
         {
-            //x_line = (s->xbox + prev->xbox + box_width) / 2;
-            x_line = s->xbox - min_spacing / 2;                     // TODO this could go the other way for long marriage lines, also do in ancestors
-            MoveToEx(hdc, x_line, y_line, NULL);
-            y_line = p->ybox + box_height + min_spacing / 2;
-            LineTo(hdc, x_line, y_line);
+            // connect marriage double lines to children.
+            if (f->children != NULL)
+            {
+                //x_line = (s->xbox + prev->xbox + box_width) / 2;
+                x_line = s->xbox - min_spacing / 2;                     // TODO this could go the other way for long marriage lines, also do in ancestors
+                MoveToEx(hdc, x_line, y_line, NULL);
+                y_line = p->ybox + box_height + min_spacing / 2;
+                LineTo(hdc, x_line, y_line);
+            }
+
+            // draw children of the family
+            for (cl = f->children; cl != NULL; cl = cl->next)
+            {
+                c = cl->p;
+                draw_desc_boxes(hdc, c);
+                MoveToEx(hdc, x_line, y_line, NULL);
+                LineTo(hdc, c->xbox + box_width / 2, y_line);
+                LineTo(hdc, c->xbox + box_width / 2, c->ybox);
+            }
         }
         prev = s;
-
-        // draw children of the family
-        for (cl = f->children; cl != NULL; cl = cl->next)
-        {
-            c = cl->p;
-            draw_desc_boxes(hdc, c);
-            MoveToEx(hdc, x_line, y_line,NULL);
-            LineTo(hdc, c->xbox + box_width / 2, y_line);
-            LineTo(hdc, c->xbox + box_width / 2, c->ybox);
-        }
     }
 }
 
@@ -399,6 +417,9 @@ draw_anc_boxes(HDC hdc, Person *p)
     draw_box(hdc, p);
     if (f == NULL)
         return;
+    if (anc_limit != 0 && -p->generation >= anc_limit)
+        return;
+
     h = f->husband;
     w = f->wife;
     if (h != NULL)
@@ -527,7 +548,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     HBRUSH hBrushOld;
     OPENFILENAME ofn;
     static PRINTDLG prd;
-    static int printx, printy, screenx, screeny, printsizex, printsizey;
+    static int printx, printy, printsizex, printsizey;
+    static int screenx, screeny, screensizex, screensizey;
     int h_scroll_save, v_scroll_save;
     int pagex, n_pagesx, pagey, n_pagesy, n_page;
     DOCINFO di;
@@ -556,6 +578,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         printsizey = GetDeviceCaps(prd.hDC, VERTRES);
         DeleteDC(prd.hDC);
 
+        // Get the screen res and size
+        hdc = GetDC(hWnd);
+        screenx = GetDeviceCaps(hdc, LOGPIXELSX);
+        screeny = GetDeviceCaps(hdc, LOGPIXELSY);
+        screensizex = GetDeviceCaps(hdc, HORZRES);
+        screensizey = GetDeviceCaps(hdc, VERTRES);
         root_person = NULL;
         break;
 
@@ -657,14 +685,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
 
             // Set up scroll bars to reflect total width and height and update view.
-            h_scrollpos = 0;
-            v_scrollpos = 0;
+            // Keep root person on screen.
+            box_width = (BOX_WIDTH * zoom_percent) / 100;
+            box_height = (BOX_HEIGHT * zoom_percent) / 100;
+            min_spacing = (MIN_SPACING * zoom_percent) / 100;
+            h_scrollpos = root_person->offset * (box_width + min_spacing) - (screensizex / 2);
+            v_scrollpos = (root_person->generation - anc_generations) * (box_height + min_spacing) - (screensizey / 2);
             update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);  // anc_generations is negative
 
             // Update window title to reflect file and chart size
         update_titlebar:
-            screenx = GetDeviceCaps(GetDC(hWnd), LOGPIXELSX);
-            screeny = GetDeviceCaps(GetDC(hWnd), LOGPIXELSY);
             pagex = (printsizex * screenx) / printx;
             n_pagesx = (h_scrollwidth + pagex - 1) / pagex;
             pagey = (printsizey * screeny) / printy;
@@ -873,6 +903,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, MF_UNCHECKED);
             goto generate_chart;
 
+        case ID_VIEW_PREFERENCES:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_PREFERENCES), hWnd, prefs_dialog);
+            break;
+
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;
@@ -1070,6 +1104,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EnableMenuItem(GetSubMenu(hMenu, 0), ID_EDIT_ADDSIBLING,
                            highlight_person->family == NULL ? MF_GRAYED : MF_ENABLED);
 
+            // Block delete if a person has children
+
+
+
+
             // Track the menu
             cmd = TrackPopupMenu
                 (
@@ -1140,8 +1179,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 register_family(f);
                 p->spouses = new_familylist(f, p->spouses);
                 highlight_person->spouses = new_familylist(f, highlight_person->spouses);
-
-                // TODO other button actions here, then...
+                root_person = highlight_person;
                 goto generate_chart;
 
             case ID_EDIT_ADDPARENT:
@@ -1175,12 +1213,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 p2->spouses = new_familylist(f, p2->spouses);
                 highlight_person->family = f;
                 f->children = new_personlist(highlight_person, f->children);
-
-                // TODO other button actions here, then...
+                root_person = highlight_person;
                 goto generate_chart;
 
             case ID_EDIT_ADDSIBLING:
             add_sibling:
+                // Preload surname from existing child.
+                p = new_person(STATE_NEW_CHILD);
+                strcpy_s(p->surname, MAXSTR, highlight_person->surname);
+                cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)p);
+                if (cmd == IDCANCEL)
+                {
+                    free(p);
+                    break;
+                }
+                register_person(p);
+                p->family = highlight_person->family;
+                p->family->children = new_personlist(p, p->family->children);
+                goto generate_chart;
+
+            case ID_EDIT_DELETE:
 
 
 
@@ -1240,8 +1292,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 register_person(p);
                 p->family = highlight_family;
                 highlight_family->children = new_personlist(p, highlight_family->children);
-
-                // TODO other button actions here, then...
+                root_person = highlight_family->husband;    // arbitrary choice to keep other sibs in view
                 goto generate_chart;
             }
         }
@@ -1260,8 +1311,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
             hFontOld = SelectObject(hdc, hFont);
             hBrushOld = GetStockObject(NULL_BRUSH);
-            screenx = GetDeviceCaps(hdc, LOGPIXELSX);
-            screeny = GetDeviceCaps(hdc, LOGPIXELSY);
 
             // Draw the page boundaries in light grey.
             SetDCPenColor(hdc, RGB(192, 192, 192));

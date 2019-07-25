@@ -308,6 +308,29 @@ LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     return 0;
 }
 
+LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    static Note **np;
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        np = (Note **)lParam;
+        return 0;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDOK:
+        case IDCANCEL:
+            EndDialog(hDlg, LOWORD(wParam));
+            return 1;
+        }
+        break;
+    }
+    return 0;
+}
+
 // Message handler for about box.
 LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
