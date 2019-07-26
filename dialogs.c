@@ -358,10 +358,14 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 // Message handler for about box.
 LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    char buf[MAXSTR];
+
     UNREFERENCED_PARAMETER(lParam);
     switch (message)
     {
     case WM_INITDIALOG:
+        sprintf_s(buf, MAXSTR, "Family Business, Version 0.1, Build %s", __DATE__);
+        SetDlgItemText(hDlg, IDC_STATIC_VERSION, buf);
         return 1;
 
     case WM_COMMAND:
