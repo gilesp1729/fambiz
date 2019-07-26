@@ -411,8 +411,9 @@ void
 draw_anc_boxes(HDC hdc, Person *p)
 {
     Family *f = p->family;
-    int x_line, y_line;
+    int x_line, y_line, y_event;
     Person *h, *w;
+    Event *ev;
 
     draw_box(hdc, p);
     if (f == NULL)
@@ -460,6 +461,16 @@ draw_anc_boxes(HDC hdc, Person *p)
         LineTo(hdc, x_line, y_line);
         LineTo(hdc, p->xbox + box_width / 2, y_line);
         LineTo(hdc, p->xbox + box_width / 2, p->ybox);
+
+        y_event = w->ybox + box_height;
+        for (ev = f->event; ev != NULL; ev = ev->next)
+        {
+            char buf[64];
+
+            sprintf_s(buf, 64, "%s %s", codes[ev->type].display, ev->date);
+            TextOut(hdc, w->xbox + small_space, y_event, buf, strlen(buf));
+            y_event += char_height;
+        }
     }
 }
 
