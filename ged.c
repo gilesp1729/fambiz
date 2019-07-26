@@ -174,7 +174,8 @@ Event *find_event(EVENT type, Event **event_list)
     return new_event(type, event_list);
 }
 
-// Remove an event of the given type from the list, if it exists.
+// Remove an event of the given type from the list, if it exists. 
+// It's OK if it doesn't.
 void remove_event(EVENT type, Event **event_list)
 {
     Event *ev;
@@ -193,6 +194,50 @@ void remove_event(EVENT type, Event **event_list)
             return;
         }
     }
+}
+
+// Remove a person from a personlist. ASSERT if it's not there.
+void remove_personlist(Person *p, PersonList **person_list)
+{
+    PersonList *pl;
+    PersonList *prev = NULL;
+
+    for (pl = *person_list; pl != NULL; prev = pl, pl = pl->next)
+    {
+        if (pl->p == p)
+        {
+            if (prev == NULL)   // first in list
+                *person_list = pl->next;
+            else
+                prev->next = pl->next;
+
+            free(pl);
+            return;
+        }
+    }
+    ASSERT(FALSE, "Person not found in list");
+}
+
+// Remove a family from a familylist. ASSERT if it's not there.
+void remove_familylist(Family *f, FamilyList **family_list)
+{
+    FamilyList *fl;
+    FamilyList *prev = NULL;
+
+    for (fl = *family_list; fl != NULL; prev = fl, fl = fl->next)
+    {
+        if (fl->f == f)
+        {
+            if (prev == NULL)   // first in list
+                *family_list = fl->next;
+            else
+                prev->next = fl->next;
+
+            free(fl);
+            return;
+        }
+    }
+    ASSERT(FALSE, "Family not found in list");
 }
 
 // Skip forward in a GEDCOM file to the next record at a given level.

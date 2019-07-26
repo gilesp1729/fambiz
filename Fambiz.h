@@ -117,9 +117,20 @@ extern Person *root_person;
 extern BOOL view_desc;
 extern BOOL view_anc;
 extern Code codes[];
+extern int desc_limit;
+extern int anc_limit;
+
 
 // Macros
 #define MAX(a, b)   ((a) > (b) ? (a) : (b))
+
+#define STRICT_ASSERTS
+#ifdef STRICT_ASSERTS
+#define ASSERT(exp, msg)    do { if (!(exp)) { OutputDebugString(msg); DebugBreak(); } } while(0)
+#else
+#define ASSERT(exp, msg)    do { if (!(exp)) OutputDebugString(msg) } while(0)
+#endif
+
 
 // chart.c
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -148,3 +159,5 @@ Person *find_person(int id);
 Family *find_family(int id);
 Event *find_event(EVENT type, Event **event_list);
 void remove_event(EVENT type, Event **event_list);
+void remove_personlist(Person *p, PersonList **person_list);
+void remove_familylist(Family *f, FamilyList **family_list);

@@ -310,18 +310,42 @@ LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 
 LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static Note **np;
+    char buf[MAXSTR];
+    int i, indx, root_index;
 
     switch (message)
     {
     case WM_INITDIALOG:
-        np = (Note **)lParam;
+        SetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, desc_limit, FALSE);
+        SetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, anc_limit, FALSE);
+        for (i = 1; i <= n_person; i++)
+        {
+            Person *p = lookup_person[i];
+            Event *ev;
+
+            if (p != NULL)
+            {
+                ev = find_event(EV_BIRTH, &p->event);
+                sprintf_s(buf, MAXSTR, "%d: %s %s (%s)", p->id, p->given, p->surname, ev->date);
+                indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_ADDSTRING, 0, (LPARAM)buf);
+                if (p == root_person)
+                    root_index = indx;
+            }
+        }
+        SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_SETCURSEL, root_index, 0);
         return 0;
 
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
         case IDOK:
+            desc_limit = GetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, NULL, FALSE);
+            anc_limit = GetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, NULL, FALSE);
+            indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETCURSEL, 0, 0);
+            SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETLBTEXT, indx, (LPARAM)buf);
+            i = atoi(buf);
+            root_person = lookup_person[i];
+            // fall through
         case IDCANCEL:
             EndDialog(hDlg, LOWORD(wParam));
             return 1;

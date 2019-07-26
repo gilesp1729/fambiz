@@ -730,8 +730,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case ID_FILE_NEW:
+            // TODO check for changes and save, then free everything
+
+            n_person = 0;
+            n_family = 0;
+            memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
+            memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
+
+            root_person = highlight_person = new_person_by_id(1);
+            curr_filename[0] = '\0';
+            SetWindowText(hWnd, "Family Business");
+            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)root_person);
+            switch (cmd)
+            {
+            case IDCANCEL:
+                break;
+            case IDOK:
+                InvalidateRect(hWnd, NULL, TRUE);
+                break;
+            case ID_PERSON_ADDSPOUSE:
+                goto add_spouse;
+            case ID_PERSON_ADDPARENT:
+                goto add_parent;
+            case ID_PERSON_ADDSIBLING:
+                goto add_sibling;
+            }
+            break;
+
         case ID_FILE_CLOSE:
             // TODO check for changes and save, then free everything
+
+            n_person = 0;
+            n_family = 0;
+            memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
+            memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
+
             root_person = NULL;
             curr_filename[0] = '\0';
             InvalidateRect(hWnd, NULL, TRUE);
@@ -904,7 +937,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             goto generate_chart;
 
         case ID_VIEW_PREFERENCES:
-            DialogBox(hInst, MAKEINTRESOURCE(IDD_PREFERENCES), hWnd, prefs_dialog);
+            if (DialogBox(hInst, MAKEINTRESOURCE(IDD_PREFERENCES), hWnd, prefs_dialog) == IDOK)
+                goto generate_chart;
             break;
 
         case IDM_ABOUT:
@@ -1094,6 +1128,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             Person *p, *p2;
             Family *f;
+            int nlink;
+            FamilyList *s;
 
             // Load menu and block nonsensical actions
             hMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_MENUPOPUP));
@@ -1104,10 +1140,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EnableMenuItem(GetSubMenu(hMenu, 0), ID_EDIT_ADDSIBLING,
                            highlight_person->family == NULL ? MF_GRAYED : MF_ENABLED);
 
-            // Block delete if a person has children
-
-
-
+            // Only allow delete if a person has exactly one link to the tree.
+            // The root person cannot be deleted.
+            nlink = 0;
+            if (highlight_person->family != NULL)
+                nlink++;
+            for (s = highlight_person->spouses; s != NULL; s = s->next)
+            {
+                nlink++;
+                if (s->f->children != NULL)
+                    nlink++;
+            }
+            EnableMenuItem(GetSubMenu(hMenu, 0), ID_EDIT_DELETE,
+                           (nlink != 1 || highlight_person == root_person )? MF_GRAYED : MF_ENABLED);
 
             // Track the menu
             cmd = TrackPopupMenu
@@ -1158,13 +1203,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 f = new_family();
                 if (highlight_person->sex[0] == 'F')
                 {
-                    strcpy_s(p->sex, MAXSTR, "M");
+                    strcpy_s(p->sex, 2, "M");
                     f->wife = highlight_person;
                     f->husband = p;
                 }
                 else
                 {
-                    strcpy_s(p->sex, MAXSTR, "F");
+                    strcpy_s(p->sex, 2, "F");
                     f->wife = p;
                     f->husband = highlight_person;
                 }
@@ -1179,7 +1224,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 register_family(f);
                 p->spouses = new_familylist(f, p->spouses);
                 highlight_person->spouses = new_familylist(f, highlight_person->spouses);
-                root_person = highlight_person;
                 goto generate_chart;
 
             case ID_EDIT_ADDPARENT:
@@ -1213,7 +1257,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 p2->spouses = new_familylist(f, p2->spouses);
                 highlight_person->family = f;
                 f->children = new_personlist(highlight_person, f->children);
-                root_person = highlight_person;
+
+                // make the new parent the root so they are visible
+                root_person = p;
                 goto generate_chart;
 
             case ID_EDIT_ADDSIBLING:
@@ -1233,11 +1279,38 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 goto generate_chart;
 
             case ID_EDIT_DELETE:
+                // This person either has one spouse and no children, or is the child of a family.
+                // Other cases cannot come here because the option is disabled.
+                // The root person cannot be deleted.
+                p = highlight_person;
+                if (p->spouses != NULL)
+                {
+                    ASSERT(p->spouses->next == NULL, "More than one spouse");
 
+                    // Remove familylist from the other spouse
+                    f = p->spouses->f;
+                    if (p == f->husband)
+                        remove_familylist(f, &f->wife->spouses);
+                    else if (p == f->wife)
+                        remove_familylist(f, &f->husband->spouses);
+                    else
+                        ASSERT(FALSE, "Person not husband or wife");
+                    
+                    // Free the family
+                    lookup_family[f->id] = NULL;
+                    free(f);
+                }
+                else if (highlight_person->family != NULL)
+                {
+                    // Remove person from the family's list of children
+                    f = highlight_person->family;
+                    remove_personlist(p, &f->children);
+                }
 
-
-
-
+                // Free the person
+                lookup_person[p->id] = NULL;
+                free(p);
+                highlight_person = NULL;
                 goto generate_chart;
             }
         }
