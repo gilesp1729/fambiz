@@ -34,6 +34,7 @@ int min_spacing;
 int round_diam;
 int small_space;
 int char_height;
+int zooms[20];
 
 // Limit generations in ancestors/descendants. (0 = no limit)
 int desc_limit = 0;
@@ -310,6 +311,10 @@ draw_box(HDC hdc, Person *p)
     wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
     for (ev = p->event; ev != NULL; ev = ev->next)
     {
+        // special case for Born - don't say just Born if we don't have a date
+        if (ev->type == EV_BIRTH && ev->date[0] == '\0')
+            continue;
+
         sprintf_s(buf, MAXSTR, "%s %s", codes[ev->type].display, ev->date);
         wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
         if (ev->place != NULL && ev->place[0] != '\0')
@@ -618,7 +623,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             
             SetWindowText(hWnd, curr_filename);
-            root_person = lookup_person[1];         // TODO temporary, until saving/restoring done
+            if (root_person == NULL)
+                root_person = lookup_person[1];
 
         generate_chart:
             // Clear offset arrays.
@@ -666,12 +672,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 else if (anc_accum_width > desc_accum_width)
                 {
+                    int saved_max;
+
                     root_person->accum_width = anc_accum_width;
                     determine_anc_offsets(root_person, 0);
                     for (i = 0; i < CENTRE_GEN; i++)    // start at 0 as root offset not stored
                         gen_offset[i] = (anc_accum_width - desc_accum_width) / 2;
+                    saved_max = max_offset;             // Save the max offset so it doesn't push descendants over
+                    max_offset = (anc_accum_width - desc_accum_width) / 2;
                     root_person->accum_width = desc_accum_width;
                     determine_desc_offsets(root_person, 0);
+                    max_offset = MAX(max_offset, saved_max);
                 }
                 else
                 {
@@ -1533,6 +1544,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EnableMenuItem(hMenu, ID_VIEW_ANCESTORS, root_person != NULL ? MF_ENABLED : MF_GRAYED);
         }
 
+        CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, view_desc ? MF_CHECKED : MF_UNCHECKED);
+        CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, view_anc ? MF_CHECKED : MF_UNCHECKED);
         break;
 
     case WM_SIZE:

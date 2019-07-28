@@ -268,11 +268,13 @@ read_ged(char *filename)
 {
     FILE *ged;
     char buf[MAXSTR], *ref, *tag;
-    int id;
+    int id, root_id;
     char *ctxt = NULL;
     Event *ev;
 
     // Clear lookup arrays to NULL pointers.
+    root_person = NULL;
+    root_id = 0;
     n_person = 0;
     n_family = 0;
     memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
@@ -301,6 +303,10 @@ read_ged(char *filename)
             {
                 Person *p = find_person(id);
                 int lev;
+
+                // IF we've seen a _VIEW tag, set up the root person.
+                if (root_id != 0 && root_id == id)
+                    root_person = p;
 
                 skip_ged(ged, 1);       // absorb the first level number
                 while (1)
@@ -551,10 +557,37 @@ read_ged(char *filename)
                 }
             }
         }
+        else if (strcmp(ref, "_VIEW") == 0)     // This is a Fambiz file with view parameters
+        {
+            ref = strtok_s(NULL, " \n", &ctxt);
+            if (ref != NULL)
+                root_id = atoi(ref);
+            ref = strtok_s(NULL, " \n", &ctxt);
+            if (ref != NULL)
+                view_desc = atoi(ref);
+            ref = strtok_s(NULL, " \n", &ctxt);
+            if (ref != NULL)
+                view_anc = atoi(ref);
+            ref = strtok_s(NULL, " \n", &ctxt);
+            if (ref != NULL)
+                desc_limit = atoi(ref);
+            ref = strtok_s(NULL, " \n", &ctxt);
+            if (ref != NULL)
+                anc_limit = atoi(ref);
+            ref = strtok_s(NULL, " \n", &ctxt);
+            if (ref != NULL)
+                zoom_percent = atoi(ref);
+            if (skip_ged(ged, 0) < 0)
+                break;
+        }
         else if (strcmp(ref, "TRLR") == 0)      // Trailer has been read, we're finished.
+        {
             break;
+        }
         else if (skip_ged(ged, 0) < 0)          // It's unrecognised - skip over it
+        {
             goto eof_error;
+        }
     }
 
     fclose(ged);
@@ -582,6 +615,7 @@ write_ged(char *filename)
     if (ged == NULL)
         return FALSE;
 
+    // Write out the header
     GetDateFormat(LOCALE_SYSTEM_DEFAULT, 0, NULL, "dd MMM yyyy", buf, MAX_NOTESIZE);
     fprintf_s(ged, "0 HEAD\n");
     fprintf_s(ged, "1 GEDC\n");
@@ -593,6 +627,9 @@ write_ged(char *filename)
     fprintf_s(ged, "1 SOUR FAMBIZ\n");
     fprintf_s(ged, "2 NAME Family Business\n");
     fprintf_s(ged, "1 FILE %s\n", filename);
+
+    // Write out the view parameters
+    fprintf_s(ged, "0 _VIEW %d %d %d %d %d %d\n", root_person->id, view_desc, view_anc, desc_limit, anc_limit, zoom_percent);
 
     for (i = 0; i <= n_person; i++)
     {

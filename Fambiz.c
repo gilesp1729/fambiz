@@ -50,7 +50,6 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
     HWND hWnd;
-    HMENU hMenu;
 	MSG msg;
 	HACCEL hAccelTable;
 
@@ -62,10 +61,6 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	// Perform application initialization:
 	if ((hWnd = InitInstance (hInstance, nCmdShow)) == NULL)
 		return FALSE;
-
-    hMenu = GetSubMenu(GetMenu(hWnd), 1);
-    CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, view_desc ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, view_anc ? MF_CHECKED : MF_UNCHECKED);
 
 	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_FAMBIZ));
 

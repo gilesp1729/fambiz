@@ -333,6 +333,9 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
             }
         }
         SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_SETCURSEL, root_index, 0);
+        SetDlgItemInt(hDlg, IDC_PREFS_ZOOM, zoom_percent, FALSE);
+        CheckDlgButton(hDlg, IDC_PREFS_VIEW_DESC, view_desc ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(hDlg, IDC_PREFS_VIEW_ANC, view_anc ? BST_CHECKED : BST_UNCHECKED);
         return 0;
 
     case WM_COMMAND:
@@ -345,6 +348,9 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
             SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETLBTEXT, indx, (LPARAM)buf);
             i = atoi(buf);
             root_person = lookup_person[i];
+            zoom_percent = GetDlgItemInt(hDlg, IDC_PREFS_ZOOM, NULL, FALSE);
+            view_desc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_DESC);
+            view_anc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_ANC);
             // fall through
         case IDCANCEL:
             EndDialog(hDlg, LOWORD(wParam));

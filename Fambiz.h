@@ -119,6 +119,7 @@ extern BOOL view_anc;
 extern Code codes[];
 extern int desc_limit;
 extern int anc_limit;
+extern int zoom_percent;
 
 
 // Macros
