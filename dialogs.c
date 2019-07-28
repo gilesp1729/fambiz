@@ -11,6 +11,7 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 {
     static Person *p;
     Event *ev;
+    Note **note_ptr;
     char buf[MAXSTR], date[MAXSTR], place[MAXSTR], cause[MAXSTR];
     int nd, np, nc, checked, cmd;
 
@@ -152,7 +153,9 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             return 1;
 
         case ID_PERSON_NOTES:
-            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hDlg, notes_dialog, (LPARAM)&p->notes);
+            note_ptr = &p->notes;
+        person_notes_dlg:
+            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hDlg, notes_dialog, (LPARAM)note_ptr);
             switch (cmd)
             {
             case IDOK:
@@ -160,7 +163,8 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 break;
 
             case ID_NOTES_NEXT:
-                break;
+                note_ptr = &(*note_ptr)->next;
+                goto person_notes_dlg;
             }
             break;
 
@@ -306,29 +310,29 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static Note **np;
-    static Note *n;
 
     switch (message)
     {
     case WM_INITDIALOG:
         np = (Note **)lParam;
         if (*np != NULL)
-        {
-            n = *np;
-            SetDlgItemText(hDlg, IDC_NOTES_TEXT, n->note);
-            //EnableWindow
-        }
+            SetDlgItemText(hDlg, IDC_NOTES_TEXT, (*np)->note);
         else
-        {
-        }
+            EnableWindow(GetDlgItem(hDlg, ID_NOTES_NEXT), FALSE);
         return 0;
 
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
         case IDOK:
+            // Store the note text at the given pointer or attach a new note to the tail.
+            if (*np == NULL)
+                *np = calloc(1, sizeof(Note));
+            GetDlgItemText(hDlg, IDC_NOTES_TEXT, (*np)->note, MAX_NOTESIZE);
+            // fall through
         case IDCANCEL:
         case ID_NOTES_NEXT:
+            // These are handled outside
             EndDialog(hDlg, LOWORD(wParam));
             return 1;
         }

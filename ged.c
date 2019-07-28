@@ -267,7 +267,7 @@ BOOL
 read_ged(char *filename)
 {
     FILE *ged;
-    char buf[MAXSTR], *ref, *tag;
+    char buf[MAX_NOTESIZE], *ref, *tag;
     int id, root_id;
     char *ctxt = NULL;
     Event *ev;
@@ -398,29 +398,31 @@ read_ged(char *filename)
                         if (ref != NULL)
                             strcpy_s(p->notes->note, MAX_NOTESIZE, ref);
 
-                        if (skip_ged(ged, 2) < 2)       // handle notes with no level-2 stuff
-                            break;
-                        while (1)
+                        lev = skip_ged(ged, 2);
+                        if (lev == 2)       // handle notes with no level-2 stuff
                         {
-                            fgets(buf, MAX_NOTESIZE, ged);
-                            tag = strtok_s(buf, " \n", &ctxt);
-                            if (strcmp(tag, "CONT") == 0)
+                            while (1)
                             {
-                                strcat_s(p->notes->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
-                                ref = strtok_s(NULL, "\n", &ctxt);
-                                if (ref != NULL)
-                                    strcat_s(p->notes->note, MAX_NOTESIZE, ref);
-                            }
-                            else if (strcmp(tag, "CONC") == 0)
-                            {
-                                ref = strtok_s(NULL, "\n", &ctxt);
-                                if (ref != NULL)
-                                    strcat_s(p->notes->note, MAX_NOTESIZE, ref);
-                            }
+                                fgets(buf, MAX_NOTESIZE, ged);
+                                tag = strtok_s(buf, " \n", &ctxt);
+                                if (strcmp(tag, "CONT") == 0)
+                                {
+                                    strcat_s(p->notes->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcat_s(p->notes->note, MAX_NOTESIZE, ref);
+                                }
+                                else if (strcmp(tag, "CONC") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcat_s(p->notes->note, MAX_NOTESIZE, ref);
+                                }
 
-                            lev = skip_ged(ged, 2);
-                            if (lev < 2)
-                                break;
+                                lev = skip_ged(ged, 2);
+                                if (lev < 2)
+                                    break;
+                            }
                         }
                         if (lev == 1)            // don't skip again at level 1
                             continue;
@@ -508,7 +510,6 @@ read_ged(char *filename)
                             if (lev < 2)
                                 break;
                         }
-
                         if (lev == 1)            // don't skip again at level 1
                             continue;
                         else if (lev < 1)
@@ -521,26 +522,27 @@ read_ged(char *filename)
                         if (ref != NULL)
                             strcpy_s(f->notes->note, MAX_NOTESIZE, ref);
 
-                        if (skip_ged(ged, 2) < 2)       // handle notes with no level-2 stuff
-                            break;
-                        while (1)
+                        lev = skip_ged(ged, 2);
+                        if (lev == 2)       // handle notes with no level-2 stuff
                         {
-                            fgets(buf, MAX_NOTESIZE, ged);
-                            tag = strtok_s(buf, " \n", &ctxt);
-                            if (strcmp(tag, "CONT") == 0)
+                            while (1)
                             {
-                                strcat_s(f->notes->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
-                                ref = strtok_s(NULL, "\n", &ctxt);
-                                if (ref != NULL)
-                                    strcat_s(f->notes->note, MAX_NOTESIZE, ref);
+                                fgets(buf, MAX_NOTESIZE, ged);
+                                tag = strtok_s(buf, " \n", &ctxt);
+                                if (strcmp(tag, "CONT") == 0)
+                                {
+                                    strcat_s(f->notes->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcat_s(f->notes->note, MAX_NOTESIZE, ref);
+                                }
+                                else if (strcmp(tag, "CONC") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcat_s(f->notes->note, MAX_NOTESIZE, ref);
+                                }
                             }
-                            else if (strcmp(tag, "CONC") == 0)
-                            {
-                                ref = strtok_s(NULL, "\n", &ctxt);
-                                if (ref != NULL)
-                                    strcat_s(f->notes->note, MAX_NOTESIZE, ref);
-                            }
-
                             lev = skip_ged(ged, 2);
                             if (lev < 2)
                                 break;
