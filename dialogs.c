@@ -12,7 +12,7 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     static Person *p;
     Event *ev;
     char buf[MAXSTR], date[MAXSTR], place[MAXSTR], cause[MAXSTR];
-    int nd, np, nc, checked;
+    int nd, np, nc, checked, cmd;
 
     switch (message)
     {
@@ -152,7 +152,16 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             return 1;
 
         case ID_PERSON_NOTES:
-            DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hDlg, notes_dialog, (LPARAM)&p->notes);
+            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hDlg, notes_dialog, (LPARAM)&p->notes);
+            switch (cmd)
+            {
+            case IDOK:
+            case IDCANCEL:
+                break;
+
+            case ID_NOTES_NEXT:
+                break;
+            }
             break;
 
         case IDC_CHECK_DECEASED:
@@ -177,7 +186,7 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     static Family *f;
     Event *ev;
     char buf[MAXSTR], date[MAXSTR], place[MAXSTR];
-    int nd, np, checked;
+    int nd, np, checked, cmd;
 
     switch (message)
     {
@@ -260,7 +269,16 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             return 1;
 
         case ID_FAMILY_NOTES:
-            DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hDlg, notes_dialog, (LPARAM)&f->notes);
+            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hDlg, notes_dialog, (LPARAM)&f->notes);
+            switch (cmd)
+            {
+            case IDOK:
+            case IDCANCEL:
+                break;
+
+            case ID_NOTES_NEXT:
+                break;
+            }
             break;
 
         case IDC_CHECK_MARR:
@@ -288,11 +306,21 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static Note **np;
+    static Note *n;
 
     switch (message)
     {
     case WM_INITDIALOG:
         np = (Note **)lParam;
+        if (*np != NULL)
+        {
+            n = *np;
+            SetDlgItemText(hDlg, IDC_NOTES_TEXT, n->note);
+            //EnableWindow
+        }
+        else
+        {
+        }
         return 0;
 
     case WM_COMMAND:
@@ -300,6 +328,7 @@ LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
         {
         case IDOK:
         case IDCANCEL:
+        case ID_NOTES_NEXT:
             EndDialog(hDlg, LOWORD(wParam));
             return 1;
         }

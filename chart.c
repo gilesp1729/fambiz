@@ -1542,10 +1542,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EnableMenuItem(hMenu, ID_VIEW_ZOOMOUT, root_person != NULL ? MF_ENABLED : MF_GRAYED);
             EnableMenuItem(hMenu, ID_VIEW_DESCENDANTS, root_person != NULL ? MF_ENABLED : MF_GRAYED);
             EnableMenuItem(hMenu, ID_VIEW_ANCESTORS, root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, view_desc ? MF_CHECKED : MF_UNCHECKED);
+            CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, view_anc ? MF_CHECKED : MF_UNCHECKED);
         }
 
-        CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, view_desc ? MF_CHECKED : MF_UNCHECKED);
-        CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, view_anc ? MF_CHECKED : MF_UNCHECKED);
         break;
 
     case WM_SIZE:

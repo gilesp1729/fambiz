@@ -406,7 +406,7 @@ read_ged(char *filename)
                             tag = strtok_s(buf, " \n", &ctxt);
                             if (strcmp(tag, "CONT") == 0)
                             {
-                                strcat_s(p->notes->note, MAX_NOTESIZE, "\n");
+                                strcat_s(p->notes->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
                                 ref = strtok_s(NULL, "\n", &ctxt);
                                 if (ref != NULL)
                                     strcat_s(p->notes->note, MAX_NOTESIZE, ref);
@@ -529,7 +529,7 @@ read_ged(char *filename)
                             tag = strtok_s(buf, " \n", &ctxt);
                             if (strcmp(tag, "CONT") == 0)
                             {
-                                strcat_s(f->notes->note, MAX_NOTESIZE, "\n");
+                                strcat_s(f->notes->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
                                 ref = strtok_s(NULL, "\n", &ctxt);
                                 if (ref != NULL)
                                     strcat_s(f->notes->note, MAX_NOTESIZE, ref);
@@ -666,12 +666,12 @@ write_ged(char *filename)
             if (n->note != NULL && n->note[0] != '\0')
             {
                 // Don't worry about breaking lines with CONC. Other programs handle them just fine.
-                line = strtok_s(n->note, "\n", &ctxt);
+                line = strtok_s(n->note, "\r\n", &ctxt);   // skip \r\n
                 if (line != NULL)
                     fprintf_s(ged, "1 NOTE %s\n", line);
                 while (line != NULL)
                 {
-                    line = strtok_s(NULL, "\n", &ctxt);
+                    line = strtok_s(NULL, "\r\n", &ctxt);
                     if (line != NULL)
                         fprintf_s(ged, "2 CONT %s\n", line);
                 }
