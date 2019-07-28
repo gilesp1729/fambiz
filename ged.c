@@ -358,33 +358,35 @@ read_ged(char *filename)
                     {
                         ev = new_event(EV_BIRTH, &p->event);
                     i_event_common:
-                        if (skip_ged(ged, 2) < 2)       // handle events with no level-2 stuff
-                            break;
-                        while (1)
+                        lev = skip_ged(ged, 2);
+                        if (lev == 2)       // handle events with no level-2 stuff
                         {
-                            fgets(buf, MAX_NOTESIZE, ged);
-                            tag = strtok_s(buf, " \n", &ctxt);
-                            if (strcmp(tag, "DATE") == 0)
+                            while (1)
                             {
-                                ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
-                                if (ref != NULL)
-                                    strcpy_s(ev->date, MAXSTR, ref);
+                                fgets(buf, MAX_NOTESIZE, ged);
+                                tag = strtok_s(buf, " \n", &ctxt);
+                                if (strcmp(tag, "DATE") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
+                                    if (ref != NULL)
+                                        strcpy_s(ev->date, MAXSTR, ref);
+                                }
+                                else if (strcmp(tag, "PLAC") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcpy_s(ev->place, MAXSTR, ref);
+                                }
+                                else if (strcmp(tag, "CAUS") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcpy_s(ev->cause, MAXSTR, ref);
+                                }
+                                lev = skip_ged(ged, 2);
+                                if (lev < 2)
+                                    break;
                             }
-                            else if (strcmp(tag, "PLAC") == 0)
-                            {
-                                ref = strtok_s(NULL, "\n", &ctxt);
-                                if (ref != NULL)
-                                    strcpy_s(ev->place, MAXSTR, ref);
-                            }
-                            else if (strcmp(tag, "CAUS") == 0)
-                            {
-                                ref = strtok_s(NULL, "\n", &ctxt);
-                                if (ref != NULL)
-                                    strcpy_s(ev->cause, MAXSTR, ref);
-                            }
-                            lev = skip_ged(ged, 2);
-                            if (lev < 2)
-                                break;
                         }
                         if (lev == 1)            // don't skip again at level 1
                             continue;
@@ -488,32 +490,34 @@ read_ged(char *filename)
                     {
                         ev = new_event(EV_DIVORCE, &f->event);
                     f_event_common:
-                        if (skip_ged(ged, 2) < 2)       // handle events with no level-2 stuff
-                            break;
-                        while (1)
+                        lev = skip_ged(ged, 2);
+                        if (lev == 2)       // handle events with no level-2 stuff
                         {
-                            fgets(buf, MAX_NOTESIZE, ged);
-                            tag = strtok_s(buf, " \n", &ctxt);
-                            if (strcmp(tag, "DATE") == 0)
+                            while (1)
                             {
-                                ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
-                                if (ref != NULL)
-                                    strcpy_s(ev->date, MAXSTR, ref);
+                                fgets(buf, MAX_NOTESIZE, ged);
+                                tag = strtok_s(buf, " \n", &ctxt);
+                                if (strcmp(tag, "DATE") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
+                                    if (ref != NULL)
+                                        strcpy_s(ev->date, MAXSTR, ref);
+                                }
+                                else if (strcmp(tag, "PLAC") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcpy_s(ev->place, MAXSTR, ref);
+                                }
+                                lev = skip_ged(ged, 2);
+                                if (lev < 2)
+                                    break;
                             }
-                            else if (strcmp(tag, "PLAC") == 0)
-                            {
-                                ref = strtok_s(NULL, "\n", &ctxt);
-                                if (ref != NULL)
-                                    strcpy_s(ev->place, MAXSTR, ref);
-                            }
-                            lev = skip_ged(ged, 2);
-                            if (lev < 2)
+                            if (lev == 1)            // don't skip again at level 1
+                                continue;
+                            else if (lev < 1)
                                 break;
                         }
-                        if (lev == 1)            // don't skip again at level 1
-                            continue;
-                        else if (lev < 1)
-                            break;
                     }
                     else if (strcmp(tag, "NOTE") == 0)
                     {
