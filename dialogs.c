@@ -161,6 +161,11 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             case IDOK:
             case IDCANCEL:
                 break;
+            
+            case ID_NOTES_DELETE:
+                note_ptr = remove_note(*note_ptr, &p->notes);
+                goto person_notes_dlg;
+                break;
 
             case ID_NOTES_NEXT:
                 note_ptr = &(*note_ptr)->next;
@@ -189,6 +194,7 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 {
     static Family *f;
     Event *ev;
+    Note **note_ptr;
     char buf[MAXSTR], date[MAXSTR], place[MAXSTR];
     int nd, np, checked, cmd;
 
@@ -273,15 +279,23 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             return 1;
 
         case ID_FAMILY_NOTES:
-            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hDlg, notes_dialog, (LPARAM)&f->notes);
+            note_ptr = &f->notes;
+        family_notes_dlg:
+            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hDlg, notes_dialog, (LPARAM)note_ptr);
             switch (cmd)
             {
             case IDOK:
             case IDCANCEL:
                 break;
 
-            case ID_NOTES_NEXT:
+            case ID_NOTES_DELETE:
+                note_ptr = remove_note(*note_ptr, &f->notes);
+                goto family_notes_dlg;
                 break;
+
+            case ID_NOTES_NEXT:
+                note_ptr = &(*note_ptr)->next;
+                goto family_notes_dlg;
             }
             break;
 
@@ -332,6 +346,7 @@ LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
             // fall through
         case IDCANCEL:
         case ID_NOTES_NEXT:
+        case ID_NOTES_DELETE:
             // These are handled outside
             EndDialog(hDlg, LOWORD(wParam));
             return 1;

@@ -131,11 +131,23 @@ Event *new_event(EVENT type, Event **event_list)
     return ev;
 }
 
-Note *new_note(Note *note_list)
+// Create a new note and add it to the tail of the given list.
+Note *new_note(Note **note_list)
 {
     Note *n = calloc(1, sizeof(Note));
+    Note *tail;
 
-    n->next = note_list;
+    n->next = NULL;
+    if (*note_list == NULL)
+    {
+        *note_list = n;
+    }
+    else
+    {
+        for (tail = *note_list; tail->next != NULL; tail = tail->next)
+            ;
+        tail->next = n;
+    }
     return n;
 }
 
@@ -194,6 +206,34 @@ void remove_event(EVENT type, Event **event_list)
             return;
         }
     }
+}
+
+// Remove a note from the list, if it exists. Return a pointer to the "next" pointer that points to 
+// the next note after the one deleted. If note doesn't exist returns NULL.
+Note **remove_note(Note *note, Note **note_list)
+{
+    Note *n;
+    Note *prev = NULL;
+
+    for (n = *note_list; n != NULL; prev = n, n = n->next)
+    {
+        if (n == note)
+        {
+            if (prev == NULL)   // first in list
+            {
+                *note_list = n->next;
+                free(n);
+                return note_list;
+            }
+            else
+            {
+                prev->next = n->next;
+                free(n);
+                return &prev->next;
+            }
+        }
+    }
+    return NULL;
 }
 
 // Remove a person from a personlist. ASSERT if it's not there.
@@ -395,10 +435,11 @@ read_ged(char *filename)
                     }
                     else if (strcmp(tag, "NOTE") == 0)
                     {
-                        p->notes = new_note(p->notes);
-                        ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces,quotes and XML tags. TODO: strip these
+                        Note *n = new_note(&p->notes);
+
+                        ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces, quotes and XML tags. TODO: strip these
                         if (ref != NULL)
-                            strcpy_s(p->notes->note, MAX_NOTESIZE, ref);
+                            strcpy_s(n->note, MAX_NOTESIZE, ref);
 
                         lev = skip_ged(ged, 2);
                         if (lev == 2)       // handle notes with no level-2 stuff
@@ -409,16 +450,16 @@ read_ged(char *filename)
                                 tag = strtok_s(buf, " \n", &ctxt);
                                 if (strcmp(tag, "CONT") == 0)
                                 {
-                                    strcat_s(p->notes->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
+                                    strcat_s(n->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
                                     ref = strtok_s(NULL, "\n", &ctxt);
                                     if (ref != NULL)
-                                        strcat_s(p->notes->note, MAX_NOTESIZE, ref);
+                                        strcat_s(n->note, MAX_NOTESIZE, ref);
                                 }
                                 else if (strcmp(tag, "CONC") == 0)
                                 {
                                     ref = strtok_s(NULL, "\n", &ctxt);
                                     if (ref != NULL)
-                                        strcat_s(p->notes->note, MAX_NOTESIZE, ref);
+                                        strcat_s(n->note, MAX_NOTESIZE, ref);
                                 }
 
                                 lev = skip_ged(ged, 2);
@@ -521,10 +562,11 @@ read_ged(char *filename)
                     }
                     else if (strcmp(tag, "NOTE") == 0)
                     {
-                        f->notes = new_note(f->notes);
+                        Note *n = new_note(&f->notes);
+
                         ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces,quotes and XML tags. TODO: strip these
                         if (ref != NULL)
-                            strcpy_s(f->notes->note, MAX_NOTESIZE, ref);
+                            strcpy_s(n->note, MAX_NOTESIZE, ref);
 
                         lev = skip_ged(ged, 2);
                         if (lev == 2)       // handle notes with no level-2 stuff
@@ -535,16 +577,16 @@ read_ged(char *filename)
                                 tag = strtok_s(buf, " \n", &ctxt);
                                 if (strcmp(tag, "CONT") == 0)
                                 {
-                                    strcat_s(f->notes->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
+                                    strcat_s(n->note, MAX_NOTESIZE, "\r\n");   // Use CRLF inside notes for the edit control
                                     ref = strtok_s(NULL, "\n", &ctxt);
                                     if (ref != NULL)
-                                        strcat_s(f->notes->note, MAX_NOTESIZE, ref);
+                                        strcat_s(n->note, MAX_NOTESIZE, ref);
                                 }
                                 else if (strcmp(tag, "CONC") == 0)
                                 {
                                     ref = strtok_s(NULL, "\n", &ctxt);
                                     if (ref != NULL)
-                                        strcat_s(f->notes->note, MAX_NOTESIZE, ref);
+                                        strcat_s(n->note, MAX_NOTESIZE, ref);
                                 }
                             }
                             lev = skip_ged(ged, 2);
