@@ -40,6 +40,9 @@ int zooms[20];
 int desc_limit = 0;
 int anc_limit = 0;
 
+// Modified flag
+BOOL modified = FALSE;
+
 // Find a spouse for p in family f.
 Person *find_spouse(Person *p, Family *f)
 {
@@ -380,7 +383,7 @@ draw_desc_boxes(HDC hdc, Person *p)
         {
             char buf[64];
 
-            sprintf_s(buf, 64, "%s %s", codes[ev->type].display, ev->date);
+            sprintf_s(buf, 64, "%s %s %s", codes[ev->type].display, ev->date, ev->place);
             TextOut(hdc, s->xbox + small_space, y_event, buf, strlen(buf));
             y_event += char_height;
         }
@@ -472,7 +475,7 @@ draw_anc_boxes(HDC hdc, Person *p)
         {
             char buf[64];
 
-            sprintf_s(buf, 64, "%s %s", codes[ev->type].display, ev->date);
+            sprintf_s(buf, 64, "%s %s %s", codes[ev->type].display, ev->date, ev->place);
             TextOut(hdc, w->xbox + small_space, y_event, buf, strlen(buf));
             y_event += char_height;
         }
@@ -543,6 +546,17 @@ move_person_by_deltax(Person *p, int dx)
     }
 }
 
+// Check if modified, and if necessary return TRUE to save the file.
+BOOL check_before_closing(HWND hWnd)
+{
+    if (modified)
+    {
+        modified = FALSE;
+        return MessageBox(hWnd, "File modified. Save changes?", curr_filename, MB_YESNO | MB_ICONWARNING) == IDYES;
+    }
+    return FALSE;
+}
+
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -610,6 +624,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wmId)
         {
         case ID_FILE_OPEN:
+            if (check_before_closing(hWnd))
+                goto save_file;
             memset(&ofn, 0, sizeof(OPENFILENAME));
             ofn.lStructSize = sizeof(OPENFILENAME);
             ofn.hwndOwner = hWnd;
@@ -746,14 +762,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             // fall through
         case ID_FILE_SAVE:
+        save_file:
             if (curr_filename[0] == '\0')
                 goto save_as;
             write_ged(curr_filename);
+            modified = FALSE;
             break;
 
         case ID_FILE_NEW:
-            // TODO check for changes and save, then free everything
-
+            if (check_before_closing(hWnd))
+                goto save_file;
             n_person = 0;
             n_family = 0;
             memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
@@ -780,8 +798,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case ID_FILE_CLOSE:
-            // TODO check for changes and save, then free everything
-
+            if (check_before_closing(hWnd))
+                goto save_file;
             n_person = 0;
             n_family = 0;
             memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
@@ -910,6 +928,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 else if (v_scrollpos > v_scrollheight - (rc.bottom - rc.top - 1))
                     v_scrollpos = v_scrollheight - (rc.bottom - rc.top - 1);
 
+                modified = TRUE;
                 update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
                 goto update_titlebar;
             }
@@ -935,6 +954,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 else if (v_scrollpos > v_scrollheight - (rc.bottom - rc.top - 1))
                     v_scrollpos = v_scrollheight - (rc.bottom - rc.top - 1);
 
+                modified = TRUE;
                 update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
                 goto update_titlebar;
             }
@@ -947,6 +967,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, MF_CHECKED);
             else
                 CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, MF_UNCHECKED);
+            modified = TRUE;
             goto generate_chart;
 
         case ID_VIEW_ANCESTORS:
@@ -956,11 +977,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, MF_CHECKED);
             else
                 CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, MF_UNCHECKED);
+            modified = TRUE;
             goto generate_chart;
 
         case ID_VIEW_PREFERENCES:
             if (DialogBox(hInst, MAKEINTRESOURCE(IDD_PREFERENCES), hWnd, prefs_dialog) == IDOK)
+            {
+                modified = TRUE;
                 goto generate_chart;
+            }
             break;
 
         case IDM_ABOUT:
@@ -968,6 +993,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case IDM_EXIT:
+            if (check_before_closing(hWnd))
+                goto save_file;
             DestroyWindow(hWnd);
             break;
 
@@ -1141,6 +1168,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (highlight_person != NULL)
         {
             root_person = highlight_person;
+            modified = TRUE;
             goto generate_chart;
         }
         break;
@@ -1193,6 +1221,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
             case ID_EDIT_MAKE_ROOT:
                 root_person = highlight_person;
+                modified = TRUE;
                 goto generate_chart;
                 break;
 
@@ -1207,6 +1236,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 case IDCANCEL:
                     break;
                 case IDOK:
+                    modified = TRUE;
                     InvalidateRect(hWnd, NULL, TRUE);
                     break;
                 case ID_PERSON_ADDSPOUSE:
@@ -1246,6 +1276,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 register_family(f);
                 p->spouses = new_familylist(f, p->spouses);
                 highlight_person->spouses = new_familylist(f, highlight_person->spouses);
+                modified = TRUE;
                 goto generate_chart;
 
             case ID_EDIT_ADDPARENT:
@@ -1282,6 +1313,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 // make the new parent the root so they are visible
                 root_person = p;
+                modified = TRUE;
                 goto generate_chart;
 
             case ID_EDIT_ADDSIBLING:
@@ -1298,6 +1330,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 register_person(p);
                 p->family = highlight_person->family;
                 p->family->children = new_personlist(p, p->family->children);
+                modified = TRUE;
                 goto generate_chart;
 
             case ID_EDIT_DELETE:
@@ -1333,6 +1366,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 lookup_person[p->id] = NULL;
                 free(p);
                 highlight_person = NULL;
+                modified = TRUE;
                 goto generate_chart;
             }
         }
@@ -1367,6 +1401,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
                 case IDOK:
                     InvalidateRect(hWnd, NULL, TRUE);
+                    modified = TRUE;
                     break;
                 case ID_FAMILY_ADDCHILD:
                     goto add_child;
@@ -1388,6 +1423,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 p->family = highlight_family;
                 highlight_family->children = new_personlist(p, highlight_family->children);
                 root_person = highlight_family->husband;    // arbitrary choice to keep other sibs in view
+                modified = TRUE;
                 goto generate_chart;
             }
         }
@@ -1557,6 +1593,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         PostQuitMessage(0);
         break;
 
+    case WM_CLOSE:
+        if (check_before_closing(hWnd))
+            goto save_file;
+        // fall through
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }

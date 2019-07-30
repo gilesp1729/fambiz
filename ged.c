@@ -693,6 +693,8 @@ write_ged(char *filename)
         {
             if (p->surname != NULL && p->surname[0] != '\0')
                 fprintf_s(ged, "1 NAME %s /%s/\n", p->given, p->surname);
+            else
+                fprintf_s(ged, "1 NAME %s\n", p->given);
         }
         if (p->sex != NULL && p->sex[0] != '\0')
             fprintf_s(ged, "1 SEX %s\n", p->sex);
