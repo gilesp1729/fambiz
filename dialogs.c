@@ -391,7 +391,7 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
         {
         case IDOK:
             desc_limit = GetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, NULL, FALSE);
-            anc_limit = GetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, NULL, FALSE);
+            anc_limit = GetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, NULL, FALSE);
             indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETCURSEL, 0, 0);
             SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETLBTEXT, indx, (LPARAM)buf);
             i = atoi(buf);
