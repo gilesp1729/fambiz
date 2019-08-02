@@ -323,6 +323,15 @@ draw_box(HDC hdc, Person *p)
         if (ev->place != NULL && ev->place[0] != '\0')
             wrap_text_out(hdc, x_text, &y_text, ev->place, strlen(ev->place));
     }
+
+    // Put a little icon at bottom right to indicate that there are notes on this person.
+    if (p->notes != NULL)
+    {
+        char *notepad[2] = { 0xB6, 0 };
+
+        TextOut(hdc, x_box + box_width - char_height, y_box + box_height - char_height - small_space, notepad, 1);
+    }
+
 #ifdef DEBUG_CHART
     sprintf_s(buf, MAXSTR, "%d: Off %d Wid %d", p->id, p->offset, p->accum_width);
     wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
@@ -593,6 +602,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     int desc_accum_width, anc_accum_width;
     char buf[MAXSTR];
     DEVMODE *devmode;
+    Note **note_ptr;
 
     switch (message)
     {
@@ -1248,6 +1258,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 break;
 
+            case ID_EDIT_NOTES:
+                note_ptr = &highlight_person->notes;
+            person_notes_dlg:
+                cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hWnd, notes_dialog, (LPARAM)note_ptr);
+                switch (cmd)
+                {
+                case IDOK:
+                case IDCANCEL:
+                    break;
+
+                case ID_NOTES_DELETE:
+                    note_ptr = remove_note(*note_ptr, &highlight_person->notes);
+                    goto person_notes_dlg;
+                    break;
+
+                case ID_NOTES_NEXT:
+                    note_ptr = &(*note_ptr)->next;
+                    goto person_notes_dlg;
+                }
+                break;
+
             case ID_EDIT_ADDSPOUSE:
             add_spouse:
                 // Preload sex for M or F and the family connections. 
@@ -1405,6 +1436,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
                 case ID_FAMILY_ADDCHILD:
                     goto add_child;
+                }
+                break;
+
+            case ID_EDIT_NOTES:
+                note_ptr = &highlight_family->notes;
+            family_notes_dlg:
+                cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTES), hWnd, notes_dialog, (LPARAM)note_ptr);
+                switch (cmd)
+                {
+                case IDOK:
+                case IDCANCEL:
+                    break;
+
+                case ID_NOTES_DELETE:
+                    note_ptr = remove_note(*note_ptr, &highlight_family->notes);
+                    goto family_notes_dlg;
+                    break;
+
+                case ID_NOTES_NEXT:
+                    note_ptr = &(*note_ptr)->next;
+                    goto family_notes_dlg;
                 }
                 break;
 
