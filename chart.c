@@ -325,11 +325,16 @@ draw_box(HDC hdc, Person *p)
     }
 
     // Put a little icon at bottom right to indicate that there are notes on this person.
+    // TODO pictures (picture webding is 0x9F)
     if (p->notes != NULL)
     {
-        char *notepad[2] = { 0xB6, 0 };
+        int icon_height = char_height * 1.2;
+        HFONT hFont = CreateFont(icon_height, 0, 0, 0, 0, 0, 0, 0, SYMBOL_CHARSET, 0, 0, 0, 0, "Webdings");
+        HFONT font_old = SelectObject(hdc, hFont);
+        char notepad[2] = { 0xA5, 0 };   // notepad webding
 
-        TextOut(hdc, x_box + box_width - char_height, y_box + box_height - char_height - small_space, notepad, 1);
+        TextOut(hdc, x_box + box_width - icon_height, y_box + box_height - icon_height - small_space, notepad, 1);
+        SelectObject(hdc, font_old);
     }
 
 #ifdef DEBUG_CHART
@@ -385,6 +390,8 @@ draw_desc_boxes(HDC hdc, Person *p)
         y_line += small_space;
         MoveToEx(hdc, s->xbox, y_line, NULL);
         LineTo(hdc, prev->xbox + box_width - 1, y_line);
+
+        // draw icon for any notes present on family
 
         // draw any marriage/divorce dates.
         y_event = s->ybox + box_height;
@@ -465,6 +472,7 @@ draw_anc_boxes(HDC hdc, Person *p)
             SelectObject(hdc, hPenOld);
         }
 
+        // Marriage double lines
         y_line = h->ybox + box_height / 2;
         MoveToEx(hdc, w->xbox, y_line, NULL);
         LineTo(hdc, h->xbox + box_width - 1, y_line);
@@ -472,6 +480,9 @@ draw_anc_boxes(HDC hdc, Person *p)
         MoveToEx(hdc, w->xbox, y_line, NULL);
         LineTo(hdc, h->xbox + box_width - 1, y_line);
 
+        // draw icon for any notes present on family
+
+        // connect to parents
         x_line = (h->xbox + box_width + w->xbox) / 2;
         MoveToEx(hdc, x_line, y_line, NULL);
         y_line = p->ybox - min_spacing / 2;
@@ -479,6 +490,7 @@ draw_anc_boxes(HDC hdc, Person *p)
         LineTo(hdc, p->xbox + box_width / 2, y_line);
         LineTo(hdc, p->xbox + box_width / 2, p->ybox);
 
+        // print marriage etc. events
         y_event = w->ybox + box_height;
         for (ev = f->event; ev != NULL; ev = ev->next)
         {
