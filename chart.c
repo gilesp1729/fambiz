@@ -1526,7 +1526,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 register_person(p);
                 p->family = highlight_family;
                 highlight_family->children = new_personlist(p, highlight_family->children);
-                root_person = highlight_family->husband;    // arbitrary choice to keep other sibs in view
                 modified = TRUE;
                 goto generate_chart;
             }
