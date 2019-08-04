@@ -77,17 +77,20 @@ determine_desc_widths(Person *p, int gen)
         s->generation = gen;
         p->accum_width++;
     }
-        
+
     // Accumulate widths of children and their descendants depth-first.
     child_width = 0;
-    for (fl = p->spouses; fl != NULL; fl = fl->next)
+    if (!p->hidden)
     {
-        f = fl->f;
-        for (cl = f->children; cl != NULL; cl = cl->next)
+        for (fl = p->spouses; fl != NULL; fl = fl->next)
         {
-            c = cl->p;
-            determine_desc_widths(c, gen + 1);
-            child_width += c->accum_width;
+            f = fl->f;
+            for (cl = f->children; cl != NULL; cl = cl->next)
+            {
+                c = cl->p;
+                determine_desc_widths(c, gen + 1);
+                child_width += c->accum_width;
+            }
         }
     }
     if (child_width > p->accum_width)
@@ -119,11 +122,14 @@ determine_desc_offsets(Person *p, int gen)
     for (fl = p->spouses; fl != NULL; fl = fl->next)
     {
         fl->family_max_offset = max_offset - 1;
-        f = fl->f;
-        for (cl = f->children; cl != NULL; cl = cl->next)
+        if (!p->hidden)
         {
-            c = cl->p;
-            determine_desc_offsets(c, gen + 1);
+            f = fl->f;
+            for (cl = f->children; cl != NULL; cl = cl->next)
+            {
+                c = cl->p;
+                determine_desc_offsets(c, gen + 1);
+            }
         }
     }
 
@@ -174,15 +180,18 @@ determine_anc_widths(Person *p, int gen)
     if (f == NULL)
         return;
 
-    if (f->husband != NULL)
+    if (!p->hidden)
     {
-        determine_anc_widths(f->husband, gen - 1);
-        parent_width += f->husband->accum_width;
-    }
-    if (f->wife != NULL)
-    {
-        determine_anc_widths(f->wife, gen - 1);
-        parent_width += f->wife->accum_width;
+        if (f->husband != NULL)
+        {
+            determine_anc_widths(f->husband, gen - 1);
+            parent_width += f->husband->accum_width;
+        }
+        if (f->wife != NULL)
+        {
+            determine_anc_widths(f->wife, gen - 1);
+            parent_width += f->wife->accum_width;
+        }
     }
 
     if (parent_width > p->accum_width)
@@ -199,7 +208,7 @@ determine_anc_offsets(Person *p, int gen)
     if (anc_limit != 0 && -gen > anc_limit)
         return;
 
-    if (f != NULL)
+    if (f != NULL && !p->hidden)
     {
         if (f->husband != NULL)
             determine_anc_offsets(f->husband, gen - 1);
@@ -291,11 +300,19 @@ draw_box(HDC hdc, Person *p)
     if (p == highlight_person)
         SelectObject(hdc, GetStockObject(LTGRAY_BRUSH));
     else
-        SelectObject(hdc, GetStockObject(NULL_BRUSH));
+        SelectObject(hdc, GetStockObject(WHITE_BRUSH));
 
     y_text = y_box + small_space;
     if (p->sex[0] == 'M')
     {
+        if (p->hidden)
+        {
+            int d = 2 * small_space;
+
+            Rectangle(hdc, x_box + d, y_box + d, x_box + box_width + d, y_box + box_height + d);
+            d = small_space;
+            Rectangle(hdc, x_box + d, y_box + d, x_box + box_width + d, y_box + box_height + d);
+        }
         Rectangle(hdc, x_box, y_box, x_box + box_width, y_box + box_height);
         if (p == root_person)
             Rectangle(hdc, x_box + 2, y_box + 2, x_box + box_width - 2, y_box + box_height - 2);
@@ -303,6 +320,14 @@ draw_box(HDC hdc, Person *p)
     }
     else
     {
+        if (p->hidden)
+        {
+            int d = 2 * small_space;
+
+            RoundRect(hdc, x_box + d, y_box + d, x_box + box_width + d, y_box + box_height + d, round_diam, round_diam);
+            d = small_space;
+            RoundRect(hdc, x_box + d, y_box + d, x_box + box_width + d, y_box + box_height + d, round_diam, round_diam);
+        }
         RoundRect(hdc, x_box, y_box, x_box + box_width, y_box + box_height, round_diam, round_diam);
         if (p == root_person)
             RoundRect(hdc, x_box + 2, y_box + 2, x_box + box_width - 2, y_box + box_height - 2, round_diam, round_diam);
@@ -404,7 +429,7 @@ draw_desc_boxes(HDC hdc, Person *p)
             y_event += char_height;
         }
 
-        if (desc_limit == 0 || p->generation < desc_limit)
+        if ((desc_limit == 0 || p->generation < desc_limit) && !p->hidden)
         {
             // connect marriage double lines to children.
             if (f->children != NULL)
@@ -443,6 +468,8 @@ draw_anc_boxes(HDC hdc, Person *p)
     if (f == NULL)
         return;
     if (anc_limit != 0 && -p->generation >= anc_limit)
+        return;
+    if (p->hidden)
         return;
 
     h = f->husband;
@@ -615,6 +642,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     char buf[MAXSTR];
     DEVMODE *devmode;
     Note **note_ptr;
+    Person *p;
 
     switch (message)
     {
@@ -675,8 +703,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Put all boxes off the screen so old ones don't accidentally get selected.
             for (i = 0; i <= n_person; i++)
             {
-                Person *p = lookup_person[i];
-
+                p = lookup_person[i];
                 if (p != NULL)
                 {
                     p->generation = 0;
@@ -745,12 +772,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
 
             // Set up scroll bars to reflect total width and height and update view.
-            // Keep root person on screen.
+            // Keep highlighted person (or if there isn't one, the root person) on screen.
             box_width = (BOX_WIDTH * zoom_percent) / 100;
             box_height = (BOX_HEIGHT * zoom_percent) / 100;
             min_spacing = (MIN_SPACING * zoom_percent) / 100;
-            h_scrollpos = root_person->offset * (box_width + min_spacing) - (screensizex / 2);
-            v_scrollpos = (root_person->generation - anc_generations) * (box_height + min_spacing) - (screensizey / 2);
+            p = highlight_person;
+            if (p == NULL)
+                p = root_person;
+            h_scrollpos = p->offset * (box_width + min_spacing) - (screensizex / 2);
+            v_scrollpos = (p->generation - anc_generations) * (box_height + min_spacing) - (screensizey / 2);
             update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);  // anc_generations is negative
 
             // Update window title to reflect file and chart size
@@ -1201,6 +1231,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             Person *p, *p2;
             Family *f;
             int nlink;
+            BOOL has_tree;
             FamilyList *s;
 
             // Load menu and block nonsensical actions
@@ -1215,16 +1246,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Only allow delete if a person has exactly one link to the tree.
             // The root person cannot be deleted.
             nlink = 0;
+            has_tree = FALSE;
             if (highlight_person->family != NULL)
+            {
+                has_tree = has_tree || highlight_person->generation < 0;    // in the ancestor chart
                 nlink++;
+            }
             for (s = highlight_person->spouses; s != NULL; s = s->next)
             {
                 nlink++;
                 if (s->f->children != NULL)
+                {
+                    has_tree = has_tree || highlight_person->generation > 0;   // in the descendant chart
                     nlink++;
+                }
             }
             EnableMenuItem(GetSubMenu(hMenu, 0), ID_EDIT_DELETE,
                            (nlink != 1 || highlight_person == root_person )? MF_GRAYED : MF_ENABLED);
+
+            // Change collapse/expand menu item depending on person's state. Don't allow collapse
+            // if the person has no family or ancestors, or is the root person.
+            EnableMenuItem(GetSubMenu(hMenu, 0), ID_EDIT_SHOWHIDE, has_tree ? MF_ENABLED : MF_GRAYED);
+            if (highlight_person->hidden)
+                ModifyMenu(hMenu, ID_EDIT_SHOWHIDE, MF_BYCOMMAND, ID_EDIT_SHOWHIDE, "&Expand branch");
 
             // Track the menu
             cmd = TrackPopupMenu
@@ -1245,11 +1289,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 root_person = highlight_person;
                 modified = TRUE;
                 goto generate_chart;
-                break;
 
             case ID_EDIT_SHOWHIDE:
-
-                break;
+                highlight_person->hidden = !highlight_person->hidden;
+                modified = TRUE;
+                goto generate_chart;
 
             case ID_EDIT_PERSON:
                 cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)highlight_person);
@@ -1432,10 +1476,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             switch (cmd)
             {
-            case ID_EDIT_SHOWHIDE:
-
-                break;
-
             case ID_EDIT_FAMILY:
                 cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_FAMILY), hWnd, family_dialog, (LPARAM)highlight_family);
                 switch (cmd)

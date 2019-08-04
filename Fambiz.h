@@ -61,7 +61,7 @@ typedef struct Person
     Event       *event;             // List of events (birth, death, etc) with dates/places
     struct Family *family;          // Child to family link (the person is a child of this family)
     struct FamilyList *spouses;     // List of one or more families in which the person is a spouse
-    BOOL        hidden;             // person and their descendants/ancestors are hidden in chart
+    BOOL        hidden;             // descendants/ancestors are hidden (collapsed) in chart
     CREATESTATE state;              // Indicates this person is being created new and is not in the tree yet.
 
     // Chart-related calculated data
@@ -86,7 +86,6 @@ typedef struct Family
     Person      *husband;           // Parents
     Person      *wife;
     PersonList  *children;          // List of children
-    BOOL        hidden;             // descendents/ancestors are hidden in chart
     CREATESTATE state;              // Indicates this family is being created new and is not in the tree yet.
 } Family;
 
