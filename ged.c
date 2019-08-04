@@ -384,6 +384,10 @@ read_ged(char *filename)
                         if (ref != NULL)
                             strcpy_s(p->occupation, MAXSTR, ref);
                     }
+                    else if (strcmp(tag, "_HIDDEN") == 0)
+                    {
+                        p->hidden = TRUE;
+                    }
                     else if (strcmp(tag, "DEAT") == 0)
                     {
                         ev = new_event(EV_DEATH, &p->event);
@@ -732,6 +736,8 @@ write_ged(char *filename)
             fprintf_s(ged, "1 FAMC @F%d@\n", p->family->id);
         for (sl = p->spouses; sl != NULL; sl = sl->next)
             fprintf_s(ged, "1 FAMS @F%d@\n", sl->f->id);
+        if (p->hidden)
+            fprintf_s(ged, "1 _HIDDEN\n");
     }
 
     for (i = 0; i <= n_family; i++)
