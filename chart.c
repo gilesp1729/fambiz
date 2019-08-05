@@ -1638,6 +1638,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 register_person(p);
                 p->family = highlight_family;
                 highlight_family->children = new_personlist(p, highlight_family->children);
+                highlight_person = p;  // keep new family on screen
                 modified = TRUE;
                 goto generate_chart;
             }
