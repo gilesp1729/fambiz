@@ -69,7 +69,7 @@ determine_desc_widths(Person *p, int gen)
 
     p->generation = gen;
 
-    // Get widths of p and spouse.
+    // Get widths of p and spouse(s).
     p->accum_width = 1;
     for (fl = p->spouses; fl != NULL; fl = fl->next)
     {
@@ -85,11 +85,15 @@ determine_desc_widths(Person *p, int gen)
         for (fl = p->spouses; fl != NULL; fl = fl->next)
         {
             f = fl->f;
-            for (cl = f->children; cl != NULL; cl = cl->next)
+            s = find_spouse(p, f);
+            if (!s->hidden)
             {
-                c = cl->p;
-                determine_desc_widths(c, gen + 1);
-                child_width += c->accum_width;
+                for (cl = f->children; cl != NULL; cl = cl->next)
+                {
+                    c = cl->p;
+                    determine_desc_widths(c, gen + 1);
+                    child_width += c->accum_width;
+                }
             }
         }
     }
@@ -125,10 +129,14 @@ determine_desc_offsets(Person *p, int gen)
         if (!p->hidden)
         {
             f = fl->f;
-            for (cl = f->children; cl != NULL; cl = cl->next)
+            s = find_spouse(p, f);
+            if (!s->hidden)
             {
-                c = cl->p;
-                determine_desc_offsets(c, gen + 1);
+                for (cl = f->children; cl != NULL; cl = cl->next)
+                {
+                    c = cl->p;
+                    determine_desc_offsets(c, gen + 1);
+                }
             }
         }
     }
@@ -429,7 +437,7 @@ draw_desc_boxes(HDC hdc, Person *p)
             y_event += char_height;
         }
 
-        if ((desc_limit == 0 || p->generation < desc_limit) && !p->hidden)
+        if ((desc_limit == 0 || p->generation < desc_limit) && !p->hidden && !s->hidden)
         {
             // connect marriage double lines to children.
             if (f->children != NULL)
@@ -594,15 +602,32 @@ move_person_by_deltax(Person *p, int dx)
     }
 }
 
-// Check if modified, and if necessary return TRUE to save the file.
-BOOL check_before_closing(HWND hWnd)
+// Check if modified, and if necessary save the file.
+void check_before_closing(HWND hWnd)
 {
-    if (modified)
+    OPENFILENAME ofn;
+    if (!modified)
+        return;
+
+    modified = FALSE;
+    if (MessageBox(hWnd, "File modified. Save changes?", curr_filename, MB_YESNO | MB_ICONWARNING) == IDYES)
     {
-        modified = FALSE;
-        return MessageBox(hWnd, "File modified. Save changes?", curr_filename, MB_YESNO | MB_ICONWARNING) == IDYES;
+        if (curr_filename[0] == '\0')
+        {
+            memset(&ofn, 0, sizeof(OPENFILENAME));
+            ofn.lStructSize = sizeof(OPENFILENAME);
+            ofn.hwndOwner = hWnd;
+            ofn.lpstrFilter = "GEDCOM Files (*.GED)\0*.GED\0All Files\0*.*\0\0";
+            ofn.lpstrTitle = "Save a GEDCOM File";
+            ofn.lpstrFile = curr_filename;
+            ofn.nMaxFile = MAXSTR;
+            ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+            ofn.lpstrDefExt = "ged";
+            if (!GetSaveFileName(&ofn))
+                return;  // tell user somehow - TODO
+        }
+        write_ged(curr_filename);
     }
-    return FALSE;
 }
 
 //
@@ -674,8 +699,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wmId)
         {
         case ID_FILE_OPEN:
-            if (check_before_closing(hWnd))
-                goto save_file;
+            check_before_closing(hWnd);
             memset(&ofn, 0, sizeof(OPENFILENAME));
             ofn.lStructSize = sizeof(OPENFILENAME);
             ofn.hwndOwner = hWnd;
@@ -814,7 +838,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             // fall through
         case ID_FILE_SAVE:
-        save_file:
             if (curr_filename[0] == '\0')
                 goto save_as;
             write_ged(curr_filename);
@@ -822,8 +845,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case ID_FILE_NEW:
-            if (check_before_closing(hWnd))
-                goto save_file;
+            check_before_closing(hWnd);
             n_person = 0;
             n_family = 0;
             memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
@@ -850,8 +872,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case ID_FILE_CLOSE:
-            if (check_before_closing(hWnd))
-                goto save_file;
+            check_before_closing(hWnd);
             n_person = 0;
             n_family = 0;
             memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
@@ -1045,8 +1066,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case IDM_EXIT:
-            if (check_before_closing(hWnd))
-                goto save_file;
+            check_before_closing(hWnd);
             DestroyWindow(hWnd);
             break;
 
@@ -1697,8 +1717,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_CLOSE:
-        if (check_before_closing(hWnd))
-            goto save_file;
+        check_before_closing(hWnd);
         // fall through
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
