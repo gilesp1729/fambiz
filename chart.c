@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "jpeglib.h"
 #include "Fambiz.h"
 #include <CommCtrl.h>
 #include <CommDlg.h>
@@ -644,7 +645,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     int wmId, wmEvent, i, j;
     PAINTSTRUCT ps;
-    HDC hdc;
+    HDC hdc, hdcMem;
+    HBITMAP hbmp, old_bmp;
+    BITMAP bmp;
+    BITMAPINFOHEADER bi;
     HMENU hMenu;
     HFONT hFont, hFontOld;
     HPEN hPenOld;
@@ -668,6 +672,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     DEVMODE *devmode;
     Note **note_ptr;
     Person *p;
+    int line_size;
+    char *lpbitmap;
+    struct jpeg_compress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+    FILE *jpeg;
 
     switch (message)
     {
@@ -882,6 +891,89 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             curr_filename[0] = '\0';
             InvalidateRect(hWnd, NULL, TRUE);
             SetWindowText(hWnd, "Family Business");
+            break;
+
+        case ID_FILE_EXPORT:
+            // Paint content into an image at screen resolution
+            hdc = GetDC(hWnd);
+            hdcMem = CreateCompatibleDC(hdc);
+            hbmp = CreateCompatibleBitmap(hdc, h_scrollwidth, v_scrollheight);
+            old_bmp = SelectObject(hdcMem, hbmp);
+
+            h_scroll_save = h_scrollpos;
+            v_scroll_save = v_scrollpos;
+            h_scrollpos = 0;
+            v_scrollpos = 0;
+
+            box_width = (BOX_WIDTH * zoom_percent) / 100;
+            box_height = (BOX_HEIGHT * zoom_percent) / 100;
+            min_spacing = (MIN_SPACING * zoom_percent) / 100;
+            round_diam = (ROUND_DIAM * zoom_percent) / 100;
+            small_space = round_diam / 4;
+            char_height = (CHAR_HEIGHT  * zoom_percent) / 100;
+
+            rc.left = 0;
+            rc.right = h_scrollwidth;
+            rc.top = 0;
+            rc.bottom = v_scrollheight;
+            FillRect(hdcMem, &rc, GetStockObject(WHITE_BRUSH));
+            hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+            hFontOld = SelectObject(hdcMem, hFont);
+
+            if (view_desc)
+                draw_desc_boxes(hdcMem, root_person);
+            if (view_anc)
+                draw_anc_boxes(hdcMem, root_person);
+
+            h_scrollpos = h_scroll_save;
+            v_scrollpos = v_scroll_save;
+
+            SelectObject(hdcMem, hFontOld);
+            SelectObject(hdcMem, old_bmp);
+            GetObject(hbmp, sizeof(BITMAP), &bmp);
+
+            bi.biSize = sizeof(BITMAPINFOHEADER);
+            bi.biWidth = bmp.bmWidth;
+            bi.biHeight = bmp.bmHeight;
+            bi.biPlanes = 1;
+            bi.biBitCount = 24;
+            bi.biCompression = BI_RGB;
+            bi.biSizeImage = 0;
+            bi.biXPelsPerMeter = 0;
+            bi.biYPelsPerMeter = 0;
+            bi.biClrUsed = 0;
+            bi.biClrImportant = 0;
+
+            // One scanline of bitmap
+            line_size = ((bmp.bmWidth * bi.biBitCount + 31) / 32) * 4;
+            lpbitmap = malloc(line_size);
+
+            // write scanilnes to JPEG
+            cinfo.err = jpeg_std_error(&jerr);
+            jpeg_create_compress(&cinfo);
+            fopen_s(&jpeg, "snapshot.jpg", "wb");
+            jpeg_stdio_dest(&cinfo, jpeg);
+            cinfo.image_width = bmp.bmWidth;
+            cinfo.image_height = bmp.bmHeight;
+            cinfo.input_components = 3;
+            cinfo.in_color_space = JCS_RGB; 
+            jpeg_set_defaults(&cinfo);
+            jpeg_start_compress(&cinfo, TRUE);
+            for (i = bmp.bmHeight; i >= 0; i--)
+            {
+                GetDIBits(hdc, hbmp, i, 1, lpbitmap, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
+                jpeg_write_scanlines(&cinfo, &lpbitmap, 1);
+            }
+            jpeg_finish_compress(&cinfo);
+            jpeg_destroy_compress(&cinfo);
+            free(lpbitmap);
+            DeleteObject(hbmp);
+            DeleteDC(hdcMem);
+
+            // Write HTML with image map over the image
+
+
+
             break;
 
         case ID_FILE_PAGESETUP:
