@@ -14,9 +14,8 @@ Non-goals:
 - pretty printing
 
 Todos:
-- save view (zoom/scroll/root/prefs) with file
+- output to HTML via image and map, for remote web browsing of chart(s)
 - disconnect person or branch and reattach elsewhere
-- show/hide branches
 
 Building Fambiz:
 - build from solution (.sln) file in VC 2013 or later
