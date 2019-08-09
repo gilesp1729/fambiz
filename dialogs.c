@@ -364,8 +364,9 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     switch (message)
     {
     case WM_INITDIALOG:
-        SetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, desc_limit, FALSE);
-        SetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, anc_limit, FALSE);
+        SetDlgItemText(hDlg, IDC_PREFS_TITLE, prefs.title);
+        SetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, prefs.desc_limit, FALSE);
+        SetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, prefs.anc_limit, FALSE);
         for (i = 1; i <= n_person; i++)
         {
             Person *p = lookup_person[i];
@@ -376,29 +377,30 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
                 ev = find_event(EV_BIRTH, &p->event);
                 sprintf_s(buf, MAXSTR, "%d: %s %s (%s)", p->id, p->given, p->surname, ev->date);
                 indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_ADDSTRING, 0, (LPARAM)buf);
-                if (p == root_person)
+                if (p == prefs.root_person)
                     root_index = indx;
             }
         }
         SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_SETCURSEL, root_index, 0);
-        SetDlgItemInt(hDlg, IDC_PREFS_ZOOM, zoom_percent, FALSE);
-        CheckDlgButton(hDlg, IDC_PREFS_VIEW_DESC, view_desc ? BST_CHECKED : BST_UNCHECKED);
-        CheckDlgButton(hDlg, IDC_PREFS_VIEW_ANC, view_anc ? BST_CHECKED : BST_UNCHECKED);
+        SetDlgItemInt(hDlg, IDC_PREFS_ZOOM, prefs.zoom_percent, FALSE);
+        CheckDlgButton(hDlg, IDC_PREFS_VIEW_DESC, prefs.view_desc ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(hDlg, IDC_PREFS_VIEW_ANC, prefs.view_anc ? BST_CHECKED : BST_UNCHECKED);
         return 0;
 
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
         case IDOK:
-            desc_limit = GetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, NULL, FALSE);
-            anc_limit = GetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, NULL, FALSE);
+            GetDlgItemText(hDlg, IDC_PREFS_TITLE, prefs.title, MAXSTR);
+            prefs.desc_limit = GetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, NULL, FALSE);
+            prefs.anc_limit = GetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, NULL, FALSE);
             indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETCURSEL, 0, 0);
             SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETLBTEXT, indx, (LPARAM)buf);
             i = atoi(buf);
-            root_person = lookup_person[i];
-            zoom_percent = GetDlgItemInt(hDlg, IDC_PREFS_ZOOM, NULL, FALSE);
-            view_desc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_DESC);
-            view_anc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_ANC);
+            prefs.root_person = lookup_person[i];
+            prefs.zoom_percent = GetDlgItemInt(hDlg, IDC_PREFS_ZOOM, NULL, FALSE);
+            prefs.view_desc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_DESC);
+            prefs.view_anc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_ANC);
             // fall through
         case IDCANCEL:
             EndDialog(hDlg, LOWORD(wParam));

@@ -28,7 +28,6 @@ Person *highlight_person = NULL;
 Family *highlight_family = NULL;
 
 // Zooming and fractions of the fixed widths/heights
-int zoom_percent = 200;
 int box_width;
 int box_height;
 int min_spacing;
@@ -36,10 +35,6 @@ int round_diam;
 int small_space;
 int char_height;
 int zooms[20];
-
-// Limit generations in ancestors/descendants. (0 = no limit)
-int desc_limit = 0;
-int anc_limit = 0;
 
 // Modified flag
 BOOL modified = FALSE;
@@ -65,7 +60,7 @@ determine_desc_widths(Person *p, int gen)
     FamilyList *fl;
     int child_width;
 
-    if (desc_limit != 0 && gen > desc_limit)
+    if (prefs.desc_limit != 0 && gen > prefs.desc_limit)
         return;
 
     p->generation = gen;
@@ -120,7 +115,7 @@ determine_desc_offsets(Person *p, int gen)
     int last_offset;
     int prev_max_offset = max_offset;
 
-    if (desc_limit != 0 && gen > desc_limit)
+    if (prefs.desc_limit != 0 && gen > prefs.desc_limit)
         return;
 
     // Accumulate offsets of children and their descendants depth-first.
@@ -178,7 +173,7 @@ determine_anc_widths(Person *p, int gen)
     int parent_width = 0;
     Family *f = p->family;
 
-    if (anc_limit != 0 && -gen > anc_limit)
+    if (prefs.anc_limit != 0 && -gen > prefs.anc_limit)
         return;
 
     p->generation = gen;
@@ -214,7 +209,7 @@ determine_anc_offsets(Person *p, int gen)
     Family *f = p->family;
     int last_offset;
 
-    if (anc_limit != 0 && -gen > anc_limit)
+    if (prefs.anc_limit != 0 && -gen > prefs.anc_limit)
         return;
 
     if (f != NULL && !p->hidden)
@@ -226,7 +221,7 @@ determine_anc_offsets(Person *p, int gen)
     }
 
     // Get offset of p based on stuff above.
-    if (gen == 0 && view_desc)
+    if (gen == 0 && prefs.view_desc)
         return;   // don't change an existing box for the root person
     if (gen > -2)
         last_offset = gen_offset[gen];
@@ -323,7 +318,7 @@ draw_box(HDC hdc, Person *p)
             Rectangle(hdc, x_box + d, y_box + d, x_box + box_width + d, y_box + box_height + d);
         }
         Rectangle(hdc, x_box, y_box, x_box + box_width, y_box + box_height);
-        if (p == root_person)
+        if (p == prefs.root_person)
             Rectangle(hdc, x_box + 2, y_box + 2, x_box + box_width - 2, y_box + box_height - 2);
         x_text = x_box + small_space;
     }
@@ -338,7 +333,7 @@ draw_box(HDC hdc, Person *p)
             RoundRect(hdc, x_box + d, y_box + d, x_box + box_width + d, y_box + box_height + d, round_diam, round_diam);
         }
         RoundRect(hdc, x_box, y_box, x_box + box_width, y_box + box_height, round_diam, round_diam);
-        if (p == root_person)
+        if (p == prefs.root_person)
             RoundRect(hdc, x_box + 2, y_box + 2, x_box + box_width - 2, y_box + box_height - 2, round_diam, round_diam);
         x_text = x_box + 2 * small_space;
     }
@@ -438,7 +433,7 @@ draw_desc_boxes(HDC hdc, Person *p)
             y_event += char_height;
         }
 
-        if ((desc_limit == 0 || p->generation < desc_limit) && !p->hidden && !s->hidden)
+        if ((prefs.desc_limit == 0 || p->generation < prefs.desc_limit) && !p->hidden && !s->hidden)
         {
             // connect marriage double lines to children.
             if (f->children != NULL)
@@ -476,7 +471,7 @@ draw_anc_boxes(HDC hdc, Person *p)
     draw_box(hdc, p);
     if (f == NULL)
         return;
-    if (anc_limit != 0 && -p->generation >= anc_limit)
+    if (prefs.anc_limit != 0 && -p->generation >= prefs.anc_limit)
         return;
     if (p->hidden)
         return;
@@ -547,13 +542,13 @@ update_scrollbars(HWND hWnd, int max_offset, int num_generations)
 
     GetClientRect(hWnd, &rc);
 
-    h_scrollwidth = (max_offset + 1) * ((BOX_WIDTH + MIN_SPACING) * zoom_percent) / 100;
+    h_scrollwidth = (max_offset + 1) * ((BOX_WIDTH + MIN_SPACING) * prefs.zoom_percent) / 100;
     if (h_scrollpos < 0 || h_scrollwidth - (rc.right - rc.left - 1) < 0)
         h_scrollpos = 0;
     else if (h_scrollpos > h_scrollwidth - (rc.right - rc.left - 1) < 0)
         h_scrollpos = h_scrollwidth - (rc.right - rc.left - 1);
 
-    v_scrollheight = (num_generations + 1) * ((BOX_HEIGHT + MIN_SPACING) * zoom_percent) / 100;
+    v_scrollheight = (num_generations + 1) * ((BOX_HEIGHT + MIN_SPACING) * prefs.zoom_percent) / 100;
     if (v_scrollpos < 0 || v_scrollheight - (rc.bottom - rc.top - 1) < 0)
         v_scrollpos = 0;
     else if (v_scrollpos > v_scrollheight - (rc.bottom - rc.top - 1) < 0)
@@ -691,7 +686,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     BITMAP bmp;
     BITMAPINFOHEADER bi;
     HMENU hMenu;
-    HFONT hFont, hFontOld;
+    HFONT hFont, hFontLarge, hFontOld;
     HPEN hPenOld;
     HBRUSH hBrushOld;
     OPENFILENAME ofn;
@@ -741,7 +736,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         screeny = GetDeviceCaps(hdc, LOGPIXELSY);
         screensizex = GetDeviceCaps(hdc, HORZRES);
         screensizey = GetDeviceCaps(hdc, VERTRES);
-        root_person = NULL;
+        prefs.root_person = NULL;
         break;
 
     case WM_COMMAND:
@@ -765,8 +760,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             
             SetWindowText(hWnd, curr_filename);
-            if (root_person == NULL)
-                root_person = lookup_person[1];
+            if (prefs.root_person == NULL)
+                prefs.root_person = lookup_person[1];
 
         generate_chart:
             // Clear offset arrays.
@@ -791,70 +786,70 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
 
             // Generate widths. Take care of root_person->accum_width being overwritten!
-            if (view_desc)
-                determine_desc_widths(root_person, 0);
-            desc_accum_width = root_person->accum_width;
-            if (view_anc)
-                determine_anc_widths(root_person, 0);
-            anc_accum_width = root_person->accum_width;
+            if (prefs.view_desc)
+                determine_desc_widths(prefs.root_person, 0);
+            desc_accum_width = prefs.root_person->accum_width;
+            if (prefs.view_anc)
+                determine_anc_widths(prefs.root_person, 0);
+            anc_accum_width = prefs.root_person->accum_width;
 
-            if (view_desc && view_anc)
+            if (prefs.view_desc && prefs.view_anc)
             {
                 // Update gen offsets to accommodate ancestors wider than descendants,
                 // or the converse.
                 if (desc_accum_width > anc_accum_width)
                 {
-                    root_person->accum_width = desc_accum_width;
-                    determine_desc_offsets(root_person, 0);
+                    prefs.root_person->accum_width = desc_accum_width;
+                    determine_desc_offsets(prefs.root_person, 0);
                     for (i = -1; i >= -CENTRE_GEN; i--)
                         gen_offset[i] = (desc_accum_width - anc_accum_width) / 2;
-                    root_person->accum_width = anc_accum_width;
-                    determine_anc_offsets(root_person, 0);
+                    prefs.root_person->accum_width = anc_accum_width;
+                    determine_anc_offsets(prefs.root_person, 0);
                 }
                 else if (anc_accum_width > desc_accum_width)
                 {
                     int saved_max;
 
-                    root_person->accum_width = anc_accum_width;
-                    determine_anc_offsets(root_person, 0);
+                    prefs.root_person->accum_width = anc_accum_width;
+                    determine_anc_offsets(prefs.root_person, 0);
                     for (i = 0; i < CENTRE_GEN; i++)    // start at 0 as root offset not stored
                         gen_offset[i] = (anc_accum_width - desc_accum_width) / 2;
                     saved_max = max_offset;             // Save the max offset so it doesn't push descendants over
                     max_offset = (anc_accum_width - desc_accum_width) / 2;
-                    root_person->accum_width = desc_accum_width;
-                    determine_desc_offsets(root_person, 0);
+                    prefs.root_person->accum_width = desc_accum_width;
+                    determine_desc_offsets(prefs.root_person, 0);
                     max_offset = MAX(max_offset, saved_max);
                 }
                 else
                 {
                     // Generate all offsets. Replace overwritten accum_widths.
-                    root_person->accum_width = desc_accum_width;
-                    if (view_desc)
-                        determine_desc_offsets(root_person, 0);
-                    root_person->accum_width = anc_accum_width;
-                    if (view_anc)
-                        determine_anc_offsets(root_person, 0);
+                    prefs.root_person->accum_width = desc_accum_width;
+                    if (prefs.view_desc)
+                        determine_desc_offsets(prefs.root_person, 0);
+                    prefs.root_person->accum_width = anc_accum_width;
+                    if (prefs.view_anc)
+                        determine_anc_offsets(prefs.root_person, 0);
                 }
             }
             else
             {
                 // Generate all offsets. Replace overwritten accum_widths.
-                root_person->accum_width = desc_accum_width;
-                if (view_desc)
-                    determine_desc_offsets(root_person, 0);
-                root_person->accum_width = anc_accum_width;
-                if (view_anc)
-                    determine_anc_offsets(root_person, 0);
+                prefs.root_person->accum_width = desc_accum_width;
+                if (prefs.view_desc)
+                    determine_desc_offsets(prefs.root_person, 0);
+                prefs.root_person->accum_width = anc_accum_width;
+                if (prefs.view_anc)
+                    determine_anc_offsets(prefs.root_person, 0);
             }
 
             // Set up scroll bars to reflect total width and height and update view.
             // Keep highlighted person (or if there isn't one, the root person) on screen.
-            box_width = (BOX_WIDTH * zoom_percent) / 100;
-            box_height = (BOX_HEIGHT * zoom_percent) / 100;
-            min_spacing = (MIN_SPACING * zoom_percent) / 100;
+            box_width = (BOX_WIDTH * prefs.zoom_percent) / 100;
+            box_height = (BOX_HEIGHT * prefs.zoom_percent) / 100;
+            min_spacing = (MIN_SPACING * prefs.zoom_percent) / 100;
             p = highlight_person;
             if (p == NULL)
-                p = root_person;
+                p = prefs.root_person;
             h_scrollpos = p->offset * (box_width + min_spacing) - (screensizex / 2);
             v_scrollpos = (p->generation - anc_generations) * (box_height + min_spacing) - (screensizey / 2);
             update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);  // anc_generations is negative
@@ -903,10 +898,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
             memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
 
-            root_person = highlight_person = new_person_by_id(1);
+            prefs.root_person = highlight_person = new_person_by_id(1);
             curr_filename[0] = '\0';
             SetWindowText(hWnd, "Family Business");
-            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)root_person);
+            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PERSON), hWnd, person_dialog, (LPARAM)prefs.root_person);
             switch (cmd)
             {
             case IDCANCEL:
@@ -930,7 +925,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
             memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
 
-            root_person = NULL;
+            prefs.root_person = NULL;
             curr_filename[0] = '\0';
             InvalidateRect(hWnd, NULL, TRUE);
             SetWindowText(hWnd, "Family Business");
@@ -969,12 +964,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             h_scrollpos = 0;
             v_scrollpos = 0;
 
-            box_width = (BOX_WIDTH * zoom_percent) / 100;
-            box_height = (BOX_HEIGHT * zoom_percent) / 100;
-            min_spacing = (MIN_SPACING * zoom_percent) / 100;
-            round_diam = (ROUND_DIAM * zoom_percent) / 100;
+            box_width = (BOX_WIDTH * prefs.zoom_percent) / 100;
+            box_height = (BOX_HEIGHT * prefs.zoom_percent) / 100;
+            min_spacing = (MIN_SPACING * prefs.zoom_percent) / 100;
+            round_diam = (ROUND_DIAM * prefs.zoom_percent) / 100;
             small_space = round_diam / 4;
-            char_height = (CHAR_HEIGHT  * zoom_percent) / 100;
+            char_height = (CHAR_HEIGHT  * prefs.zoom_percent) / 100;
 
             // Fill with white (otherwise background comes out black)
             rc.left = 0;
@@ -985,10 +980,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
             hFontOld = SelectObject(hdcMem, hFont);
 
-            if (view_desc)
-                draw_desc_boxes(hdcMem, root_person);
-            if (view_anc)
-                draw_anc_boxes(hdcMem, root_person);
+            if (prefs.view_desc)
+                draw_desc_boxes(hdcMem, prefs.root_person);
+            if (prefs.view_anc)
+                draw_anc_boxes(hdcMem, prefs.root_person);
 
             h_scrollpos = h_scroll_save;
             v_scrollpos = v_scroll_save;
@@ -1107,7 +1102,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             printsizex = GetDeviceCaps(prd.hDC, HORZRES);
             printsizey = GetDeviceCaps(prd.hDC, VERTRES);
             DeleteDC(prd.hDC);
-            if (root_person != NULL)
+            if (prefs.root_person != NULL)
                 InvalidateRect(hWnd, NULL, TRUE);
             goto update_titlebar;
 
@@ -1139,8 +1134,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             pagey = (printsizey * screeny) / printy;
             n_pagesy = (v_scrollheight + pagey - 1) / pagey;
 
-            printer_percentx = (printx * zoom_percent) / screenx;
-            printer_percenty = (printy * zoom_percent) / screeny;
+            printer_percentx = (printx * prefs.zoom_percent) / screenx;
+            printer_percenty = (printy * prefs.zoom_percent) / screeny;
             box_width = (BOX_WIDTH * printer_percentx) / 100;
             box_height = (BOX_HEIGHT * printer_percenty) / 100;
             min_spacing = (MIN_SPACING * printer_percentx) / 100;
@@ -1168,17 +1163,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         if (StartPage(hdc) <= 0)
                             break;
                         hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
-                        hFontOld = SelectObject(hdc, hFont);
-                        hBrushOld = GetStockObject(NULL_BRUSH);
-
+                        hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+                        hFontOld = SelectObject(hdc, hFontLarge);
+                        TextOut(hdc, small_space - h_scrollpos, small_space - v_scrollpos, prefs.title, strlen(prefs.title));
+                        SelectObject(hdc, hFont);
                         highlight_person = NULL;  // don't print the gray boxes
                         highlight_family = NULL;
-                        if (view_desc)
-                            draw_desc_boxes(hdc, root_person);
-                        if (view_anc)
-                            draw_anc_boxes(hdc, root_person);
+                        if (prefs.view_desc)
+                            draw_desc_boxes(hdc, prefs.root_person);
+                        if (prefs.view_anc)
+                            draw_anc_boxes(hdc, prefs.root_person);
 
-                        SelectObject(hdc, hBrushOld);
                         SelectObject(hdc, hFontOld);
                         DeleteObject(hFont);
                         EndPage(hdc);
@@ -1198,9 +1193,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             x_move = rc.left + (rc.right - rc.left) / 2;
             y_move = rc.top + (rc.bottom - rc.top) / 2;
         zoom_in:
-            if (root_person != NULL)
+            if (prefs.root_person != NULL)
             {
-                zoom_percent *= ZOOM_MULTIPLE;
+                prefs.zoom_percent *= ZOOM_MULTIPLE;
                 h_scrollpos = (h_scrollpos + x_move) * ZOOM_MULTIPLE - x_move;
                 if (h_scrollpos < 0 || h_scrollwidth - (rc.right - rc.left - 1) < 0)
                     h_scrollpos = 0;
@@ -1224,9 +1219,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             x_move = rc.left + (rc.right - rc.left) / 2;
             y_move = rc.top + (rc.bottom - rc.top) / 2;
         zoom_out:
-            if (root_person != NULL && zoom_percent > 20)  // stop ill-conditioning when % too small
+            if (prefs.root_person != NULL && prefs.zoom_percent > 20)  // stop ill-conditioning when % too small
             {
-                zoom_percent /= ZOOM_MULTIPLE;
+                prefs.zoom_percent /= ZOOM_MULTIPLE;
                 h_scrollpos = (h_scrollpos + x_move) / ZOOM_MULTIPLE - x_move;
                 if (h_scrollpos < 0)
                     h_scrollpos = 0;
@@ -1247,8 +1242,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         case ID_VIEW_DESCENDANTS:
             hMenu = GetSubMenu(GetMenu(hWnd), 1);
-            view_desc = !view_desc;
-            if (view_desc)
+            prefs.view_desc = !prefs.view_desc;
+            if (prefs.view_desc)
                 CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, MF_CHECKED);
             else
                 CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, MF_UNCHECKED);
@@ -1257,8 +1252,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         case ID_VIEW_ANCESTORS:
             hMenu = GetSubMenu(GetMenu(hWnd), 1);
-            view_anc = !view_anc;
-            if (view_anc)
+            prefs.view_anc = !prefs.view_anc;
+            if (prefs.view_anc)
                 CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, MF_CHECKED);
             else
                 CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, MF_UNCHECKED);
@@ -1451,7 +1446,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONDBLCLK:
         if (highlight_person != NULL)
         {
-            root_person = highlight_person;
+            prefs.root_person = highlight_person;
             modified = TRUE;
             goto generate_chart;
         }
@@ -1494,7 +1489,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
             EnableMenuItem(GetSubMenu(hMenu, 0), ID_EDIT_DELETE,
-                           (nlink != 1 || highlight_person == root_person )? MF_GRAYED : MF_ENABLED);
+                           (nlink != 1 || highlight_person == prefs.root_person) ? MF_GRAYED : MF_ENABLED);
 
             // Change collapse/expand menu item depending on person's state. Don't allow collapse
             // if the person has no family or ancestors, or is the root person.
@@ -1518,7 +1513,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             switch (cmd)
             {
             case ID_EDIT_MAKE_ROOT:
-                root_person = highlight_person;
+                prefs.root_person = highlight_person;
                 modified = TRUE;
                 goto generate_chart;
 
@@ -1631,7 +1626,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 f->children = new_personlist(highlight_person, f->children);
 
                 // make the new parent the root so they are visible
-                root_person = p;
+                prefs.root_person = p;
                 modified = TRUE;
                 goto generate_chart;
 
@@ -1767,17 +1762,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
-        if (root_person != NULL)
+        if (prefs.root_person != NULL)
         {
-            box_width = (BOX_WIDTH * zoom_percent) / 100;
-            box_height = (BOX_HEIGHT * zoom_percent) / 100;
-            min_spacing = (MIN_SPACING * zoom_percent) / 100;
-            round_diam = (ROUND_DIAM * zoom_percent) / 100;
+            box_width = (BOX_WIDTH * prefs.zoom_percent) / 100;
+            box_height = (BOX_HEIGHT * prefs.zoom_percent) / 100;
+            min_spacing = (MIN_SPACING * prefs.zoom_percent) / 100;
+            round_diam = (ROUND_DIAM * prefs.zoom_percent) / 100;
             small_space = round_diam / 4;
-            char_height = (CHAR_HEIGHT  * zoom_percent) / 100;
+            char_height = (CHAR_HEIGHT  * prefs.zoom_percent) / 100;
             hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+            hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
             hFontOld = SelectObject(hdc, hFont);
-            hBrushOld = GetStockObject(NULL_BRUSH);
 
             // Draw the page boundaries in light grey.
             SetDCPenColor(hdc, RGB(192, 192, 192));
@@ -1815,14 +1810,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SelectObject(hdc, hPenOld);
 
             // Draw the content.
-            if (view_desc)
-                draw_desc_boxes(hdc, root_person);
-            if (view_anc)
-                draw_anc_boxes(hdc, root_person);
+            SelectObject(hdc, hFontLarge);
+            TextOut(hdc, small_space - h_scrollpos, small_space - v_scrollpos, prefs.title, strlen(prefs.title));
+            SelectObject(hdc, hFont);
+            if (prefs.view_desc)
+                draw_desc_boxes(hdc, prefs.root_person);
+            if (prefs.view_anc)
+                draw_anc_boxes(hdc, prefs.root_person);
 
-            SelectObject(hdc, hBrushOld);
             SelectObject(hdc, hFontOld);
             DeleteObject(hFont);
+            DeleteObject(hFontLarge);
         }
         EndPaint(hWnd, &ps);
         break;
@@ -1905,23 +1903,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         hMenu = (HMENU)wParam;
         if (hMenu == GetSubMenu(GetMenu(hWnd), 0))
         {
-            EnableMenuItem(hMenu, ID_FILE_CLOSE, root_person != NULL ? MF_ENABLED : MF_GRAYED);
-            EnableMenuItem(hMenu, ID_FILE_PRINT, root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            EnableMenuItem(hMenu, ID_FILE_CLOSE, prefs.root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            EnableMenuItem(hMenu, ID_FILE_PRINT, prefs.root_person != NULL ? MF_ENABLED : MF_GRAYED);
         }
         else if (hMenu == GetSubMenu(GetMenu(hWnd), 1))
         {
-            EnableMenuItem(hMenu, ID_VIEW_ZOOMIN, root_person != NULL ? MF_ENABLED : MF_GRAYED);
-            EnableMenuItem(hMenu, ID_VIEW_ZOOMOUT, root_person != NULL ? MF_ENABLED : MF_GRAYED);
-            EnableMenuItem(hMenu, ID_VIEW_DESCENDANTS, root_person != NULL ? MF_ENABLED : MF_GRAYED);
-            EnableMenuItem(hMenu, ID_VIEW_ANCESTORS, root_person != NULL ? MF_ENABLED : MF_GRAYED);
-            CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, view_desc ? MF_CHECKED : MF_UNCHECKED);
-            CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, view_anc ? MF_CHECKED : MF_UNCHECKED);
+            EnableMenuItem(hMenu, ID_VIEW_ZOOMIN, prefs.root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            EnableMenuItem(hMenu, ID_VIEW_ZOOMOUT, prefs.root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            EnableMenuItem(hMenu, ID_VIEW_DESCENDANTS, prefs.root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            EnableMenuItem(hMenu, ID_VIEW_ANCESTORS, prefs.root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, prefs.view_desc ? MF_CHECKED : MF_UNCHECKED);
+            CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, prefs.view_anc ? MF_CHECKED : MF_UNCHECKED);
         }
 
         break;
 
     case WM_SIZE:
-        if (root_person != NULL)
+        if (prefs.root_person != NULL)
             update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
         break;
 

@@ -105,6 +105,18 @@ typedef struct Code
     char        display[64];
 } Code;
 
+// A structure to represent a view.
+typedef struct ViewPrefs
+{
+    char        title[MAXSTR];      // Title of view
+    Person      *root_person;       // Root person of view
+    BOOL        view_desc;          // TRUE to view descendants
+    BOOL        view_anc;           // TRUE to view ancestors
+    int         desc_limit;         // How many descendant generations to view (0 = no limit)
+    int         anc_limit;          // How many ancestor gens similary
+    int         zoom_percent;       // The zoom percentage of the view
+}  ViewPrefs;
+
 // Externals
 extern HINSTANCE hInst;
 extern char curr_filename[];
@@ -112,13 +124,8 @@ extern Person *lookup_person[];
 extern Family *lookup_family[];
 extern int n_person;
 extern int n_family;
-extern Person *root_person;
-extern BOOL view_desc;
-extern BOOL view_anc;
 extern Code codes[];
-extern int desc_limit;
-extern int anc_limit;
-extern int zoom_percent;
+extern ViewPrefs prefs;
 
 
 // Macros

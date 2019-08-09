@@ -313,7 +313,7 @@ read_ged(char *filename)
     Event *ev;
 
     // Clear lookup arrays to NULL pointers.
-    root_person = NULL;
+    prefs.root_person = NULL;
     root_id = 0;
     n_person = 0;
     n_family = 0;
@@ -346,7 +346,7 @@ read_ged(char *filename)
 
                 // IF we've seen a _VIEW tag, set up the root person.
                 if (root_id != 0 && root_id == id)
-                    root_person = p;
+                    prefs.root_person = p;
 
                 skip_ged(ged, 1);       // absorb the first level number
                 while (1)
@@ -616,19 +616,23 @@ read_ged(char *filename)
                 root_id = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                view_desc = atoi(ref);
+                prefs.view_desc = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                view_anc = atoi(ref);
+                prefs.view_anc = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                desc_limit = atoi(ref);
+                prefs.desc_limit = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                anc_limit = atoi(ref);
+                prefs.anc_limit = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                zoom_percent = atoi(ref);
+                prefs.zoom_percent = atoi(ref);
+            ref = strtok_s(NULL, "\n", &ctxt);    // title may contain spaces
+            if (ref != NULL)
+                strcpy_s(prefs.title, MAXSTR, ref);
+
             if (skip_ged(ged, 0) < 0)
                 break;
         }
@@ -680,8 +684,8 @@ write_ged(char *filename)
     fprintf_s(ged, "2 NAME Family Business\n");
     fprintf_s(ged, "1 FILE %s\n", filename);
 
-    // Write out the view parameters
-    fprintf_s(ged, "0 _VIEW %d %d %d %d %d %d\n", root_person->id, view_desc, view_anc, desc_limit, anc_limit, zoom_percent);
+    // Write out the view parameters.
+    fprintf_s(ged, "0 _VIEW %d %d %d %d %d %d %s\n", prefs.root_person->id, prefs.view_desc, prefs.view_anc, prefs.desc_limit, prefs.anc_limit, prefs.zoom_percent, prefs.title);
 
     for (i = 0; i <= n_person; i++)
     {
