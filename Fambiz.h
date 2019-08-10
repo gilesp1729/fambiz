@@ -73,6 +73,8 @@ typedef struct Person
     int         offset;             // offset from LH edge of box containing the maximum accum_width of all generations
     int         xbox;               // final position of box
     int         ybox;
+    BOOL        show_link;          // If TRUE, this person is the root of another view (for HTML only) and should be a link
+    int         view_link;          // If above TRUE, this is the view number it should link to
 } Person;
 
 typedef struct PersonList

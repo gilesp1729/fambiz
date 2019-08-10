@@ -724,6 +724,8 @@ void generate_chart(ViewPrefs *prefs)
             p->offset = 0;
             p->xbox = -99999;
             p->ybox = 0;
+            p->show_link = FALSE;
+            p->view_link = 0;
         }
     }
 
@@ -1003,6 +1005,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 // Generate chart according to prefs of view
                 generate_chart(vp);
 
+                // Enable link drawing for roots of other views
+                for (i = 0; i < n_views; i++)
+                {
+                    Person *root = view_prefs[i].root_person;
+
+                    if (i == v)
+                        continue;  // don't link to self
+                    root->show_link = TRUE;
+                    root->view_link = i;
+                }
+
                 // Preload filename for HTML from basename and view title (name will also be used for JPEG image)
                 strcpy_s(html_filename, MAXSTR, html_basename);
                 strcat_s(html_filename, MAXSTR, "_");
@@ -1141,9 +1154,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     p = lookup_person[i];
                     if (p == NULL || p->xbox < 0)
                         continue;
-                    fprintf_s(html, "<area shape=\"RECT\" href=\"javascript:void()\" coords=\"%d,%d,%d,%d\" ",
+                    fprintf_s(html, "<area shape=\"RECT\" coords=\"%d,%d,%d,%d\" ",
                               p->xbox, p->ybox, p->xbox + box_width, p->ybox + box_height);
-                    fprintf_s(html, "onClick=\"popf(person%04d)\">\n", p->id);
+                    if (p->show_link)
+                    {
+                        // plant a link to the other view's HTML file
+                        strcpy_s(buf, MAXSTR, html_basename);
+                        strcat_s(buf, MAXSTR, "_");
+                        strcat_s(buf, MAXSTR, view_prefs[p->view_link].title);
+                        clean_blanks(buf);
+                        strcat_s(buf, MAXSTR, ".html");
+                        slosh = strrchr(buf, '\\');
+                        fprintf_s(html, "href=\"%s\">\n", slosh + 1);
+                    }
+                    else   // not a link, just put in the JS to show the popup with info
+                    {
+                        fprintf_s(html, "href=\"javascript:void()\" onClick=\"popf(person%04d)\">\n", p->id);
+                    }
                 }
 
                 fprintf_s(html, "</map>\n");
