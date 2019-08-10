@@ -642,6 +642,22 @@ void check_before_closing(HWND hWnd)
     }
 }
 
+// Remove spaces from a filename (leave any prepended directory alone, though).
+// Replace them wth underscores.
+void clean_blanks(char *string)
+{
+    char *slosh = strrchr(string, '\\');
+    char *p;
+
+    if (slosh == NULL)
+        slosh = string;
+    for (p = slosh; *p != '\0'; p++)
+    {
+        if (*p == ' ')
+            *p = '_';
+    }
+}
+
 // Return a string with all quotes escaped for HTML. CRLF's are replaced by <br>.
 // Returns its buffer so it can be used in printf. The result may be longer than the input. (not checked! TODO)
 char *escq(char *buf, char *string)
@@ -781,7 +797,7 @@ void generate_chart(ViewPrefs *prefs)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    int wmId, wmEvent, i, j;
+    int wmId, wmEvent, i, j, v;
     PAINTSTRUCT ps;
     HDC hdc, hdcMem;
     HBITMAP hbmp, old_bmp;
@@ -813,7 +829,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
     FILE *jpeg, *html;
-    char html_filename[MAXSTR], jpeg_filename[MAXSTR];
+    char html_basename[MAXSTR], html_filename[MAXSTR], jpeg_filename[MAXSTR];
     char *dot, *slosh;
 
     switch (message)
@@ -962,164 +978,180 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case ID_FILE_EXPORT:
-            // Preload filename for HTML and allow user to change (base name will also be used for JPEG image)
-            strcpy_s(html_filename, MAXSTR, curr_filename);
-            dot = strrchr(html_filename, '.');
-            strcpy_s(dot, 6, ".html");
+            // Build HTML and JPEG image for each view.
+            // Strip extension from GED filename, and allow user to change
+            strcpy_s(html_basename, MAXSTR, curr_filename);
+            dot = strrchr(html_basename, '.');
+            *dot = '\0';
 
             memset(&ofn, 0, sizeof(OPENFILENAME));
             ofn.lStructSize = sizeof(OPENFILENAME);
             ofn.hwndOwner = hWnd;
-            ofn.lpstrFilter = "HTML Files (*.HTML)\0*.HTML\0All Files\0*.*\0\0";
-            ofn.lpstrTitle = "Save an HTML File";
-            ofn.lpstrFile = html_filename;
+            //ofn.lpstrFilter = "HTML Files(*.HTML)\0 * .HTML\0All Files\0 * .*\0\0";
+            ofn.lpstrTitle = "Enter Basename for HTML Files";
+            ofn.lpstrFile = html_basename;
             ofn.nMaxFile = MAXSTR;
-            ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
-            ofn.lpstrDefExt = "html";
+            ofn.Flags = OFN_PATHMUSTEXIST;
+            //ofn.lpstrDefExt = "html";
             if (!GetSaveFileName(&ofn))
                 break;
 
-            strcpy_s(jpeg_filename, MAXSTR, html_filename);
-            dot = strrchr(jpeg_filename, '.');
-            strcpy_s(dot, 5, ".jpg");
-
-            // Paint content into an image at screen resolution
-            hdc = GetDC(hWnd);
-            hdcMem = CreateCompatibleDC(hdc);
-            hbmp = CreateCompatibleBitmap(hdc, h_scrollwidth, v_scrollheight);
-            old_bmp = SelectObject(hdcMem, hbmp);
-
-            h_scroll_save = h_scrollpos;
-            v_scroll_save = v_scrollpos;
-            h_scrollpos = 0;
-            v_scrollpos = 0;
-
-            box_width = (BOX_WIDTH * prefs->zoom_percent) / 100;
-            box_height = (BOX_HEIGHT * prefs->zoom_percent) / 100;
-            min_spacing = (MIN_SPACING * prefs->zoom_percent) / 100;
-            round_diam = (ROUND_DIAM * prefs->zoom_percent) / 100;
-            small_space = round_diam / 4;
-            char_height = (CHAR_HEIGHT  * prefs->zoom_percent) / 100;
-
-            // Fill with white (otherwise background comes out black)
-            rc.left = 0;
-            rc.right = h_scrollwidth;
-            rc.top = 0;
-            rc.bottom = v_scrollheight;
-            FillRect(hdcMem, &rc, GetStockObject(WHITE_BRUSH));
-            hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
-            hFontOld = SelectObject(hdcMem, hFont);
-
-            if (prefs->view_desc)
-                draw_desc_boxes(hdcMem, prefs->root_person);
-            if (prefs->view_anc)
-                draw_anc_boxes(hdcMem, prefs->root_person);
-
-            h_scrollpos = h_scroll_save;
-            v_scrollpos = v_scroll_save;
-
-            SelectObject(hdcMem, hFontOld);
-            SelectObject(hdcMem, old_bmp);
-            GetObject(hbmp, sizeof(BITMAP), &bmp);
-
-            bi.biSize = sizeof(BITMAPINFOHEADER);
-            bi.biWidth = bmp.bmWidth;
-            bi.biHeight = bmp.bmHeight;
-            bi.biPlanes = 1;
-            bi.biBitCount = 24;
-            bi.biCompression = BI_RGB;
-            bi.biSizeImage = 0;
-            bi.biXPelsPerMeter = 0;
-            bi.biYPelsPerMeter = 0;
-            bi.biClrUsed = 0;
-            bi.biClrImportant = 0;
-
-            // One scanline of bitmap
-            line_size = ((bmp.bmWidth * bi.biBitCount + 31) / 32) * 4;
-            lpbitmap = malloc(line_size);
-
-            // write scanlines to JPEG
-            cinfo.err = jpeg_std_error(&jerr);
-            jpeg_create_compress(&cinfo);
-            fopen_s(&jpeg, jpeg_filename, "wb");
-            jpeg_stdio_dest(&cinfo, jpeg);
-
-            cinfo.image_width = bmp.bmWidth;
-            cinfo.image_height = bmp.bmHeight;
-            cinfo.input_components = 3;
-            cinfo.in_color_space = JCS_RGB; 
-            jpeg_set_defaults(&cinfo);
-            jpeg_start_compress(&cinfo, TRUE);
-            
-            for (i = bmp.bmHeight; i >= 0; i--)
+            for (v = 0; v < n_views; v++)
             {
-                GetDIBits(hdc, hbmp, i, 1, lpbitmap, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
-                jpeg_write_scanlines(&cinfo, &lpbitmap, 1);
+                ViewPrefs *vp = &view_prefs[v];
+
+                // Generate chart according to prefs of view
+                generate_chart(vp);
+
+                // Preload filename for HTML from basename and view title (name will also be used for JPEG image)
+                strcpy_s(html_filename, MAXSTR, html_basename);
+                strcat_s(html_filename, MAXSTR, "_");
+                strcat_s(html_filename, MAXSTR, vp->title);
+
+                // Get rid of spaces in the filename part
+                clean_blanks(html_filename);
+                strcpy_s(jpeg_filename, MAXSTR, html_filename);
+                strcat_s(html_filename, MAXSTR, ".html");
+                strcat_s(jpeg_filename, MAXSTR, ".jpg");
+
+                // Paint content into an image at screen resolution
+                hdc = GetDC(hWnd);
+                hdcMem = CreateCompatibleDC(hdc);
+                hbmp = CreateCompatibleBitmap(hdc, h_scrollwidth, v_scrollheight);
+                old_bmp = SelectObject(hdcMem, hbmp);
+
+                h_scroll_save = h_scrollpos;
+                v_scroll_save = v_scrollpos;
+                h_scrollpos = 0;
+                v_scrollpos = 0;
+
+                box_width = (BOX_WIDTH * vp->zoom_percent) / 100;
+                box_height = (BOX_HEIGHT * vp->zoom_percent) / 100;
+                min_spacing = (MIN_SPACING * vp->zoom_percent) / 100;
+                round_diam = (ROUND_DIAM * vp->zoom_percent) / 100;
+                small_space = round_diam / 4;
+                char_height = (CHAR_HEIGHT  * vp->zoom_percent) / 100;
+
+                // Fill with white (otherwise background comes out black)
+                rc.left = 0;
+                rc.right = h_scrollwidth;
+                rc.top = 0;
+                rc.bottom = v_scrollheight;
+                FillRect(hdcMem, &rc, GetStockObject(WHITE_BRUSH));
+                hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+                hFontOld = SelectObject(hdcMem, hFont);
+
+                if (vp->view_desc)
+                    draw_desc_boxes(hdcMem, vp->root_person);
+                if (vp->view_anc)
+                    draw_anc_boxes(hdcMem, vp->root_person);
+
+                h_scrollpos = h_scroll_save;
+                v_scrollpos = v_scroll_save;
+
+                SelectObject(hdcMem, hFontOld);
+                SelectObject(hdcMem, old_bmp);
+                GetObject(hbmp, sizeof(BITMAP), &bmp);
+
+                bi.biSize = sizeof(BITMAPINFOHEADER);
+                bi.biWidth = bmp.bmWidth;
+                bi.biHeight = bmp.bmHeight;
+                bi.biPlanes = 1;
+                bi.biBitCount = 24;
+                bi.biCompression = BI_RGB;
+                bi.biSizeImage = 0;
+                bi.biXPelsPerMeter = 0;
+                bi.biYPelsPerMeter = 0;
+                bi.biClrUsed = 0;
+                bi.biClrImportant = 0;
+
+                // One scanline of bitmap
+                line_size = ((bmp.bmWidth * bi.biBitCount + 31) / 32) * 4;
+                lpbitmap = malloc(line_size);
+
+                // write scanlines to JPEG
+                cinfo.err = jpeg_std_error(&jerr);
+                jpeg_create_compress(&cinfo);
+                fopen_s(&jpeg, jpeg_filename, "wb");
+                jpeg_stdio_dest(&cinfo, jpeg);
+
+                cinfo.image_width = bmp.bmWidth;
+                cinfo.image_height = bmp.bmHeight;
+                cinfo.input_components = 3;
+                cinfo.in_color_space = JCS_RGB;
+                jpeg_set_defaults(&cinfo);
+                jpeg_start_compress(&cinfo, TRUE);
+
+                for (i = bmp.bmHeight; i >= 0; i--)
+                {
+                    GetDIBits(hdc, hbmp, i, 1, lpbitmap, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
+                    jpeg_write_scanlines(&cinfo, &lpbitmap, 1);
+                }
+                jpeg_finish_compress(&cinfo);
+                jpeg_destroy_compress(&cinfo);
+                free(lpbitmap);
+                DeleteObject(hbmp);
+                DeleteDC(hdcMem);
+
+                // Write HTML with image map over the image
+                fopen_s(&html, html_filename, "wt");
+                fprintf_s(html, "<HTML>\n");
+                fprintf_s(html, "<head>\n");
+                fprintf_s(html, "<title>%s</title>\n", html_filename);
+                fprintf_s(html, "<script type=\"text/javascript\">\n");
+                fprintf_s(html, "var w\n");
+                fprintf_s(html, "function popf(fn)\n");
+                fprintf_s(html, "{\n");
+                fprintf_s(html, "if (w != undefined && !w.closed)\n");
+                fprintf_s(html, "    w.close()\n");
+                fprintf_s(html, "  w = window.open('', '', 'width=400, height=400')\n");
+                fprintf_s(html, "  fn(w)\n");
+                fprintf_s(html, "  w.focus()\n");
+                fprintf_s(html, "}\n");
+
+                // A function to fill window contents for each person mentioned in the chart
+                for (i = 0; i < n_person; i++)
+                {
+                    Event *ev;
+                    Note *n;
+
+                    p = lookup_person[i];
+                    if (p == NULL || p->xbox < 0)
+                        continue;
+                    fprintf_s(html, "function person%04d(w) { ", p->id);
+                    fprintf_s(html, "w.document.write(\'%d: %s %s<br>",
+                              p->id, escq(buf, p->given), escq(buf2, p->surname));
+                    for (ev = p->event; ev != NULL; ev = ev->next)
+                        fprintf_s(html, "%s %s %s<br>", codes[ev->type].display, escq(buf, ev->date), escq(buf2, ev->place));
+                    for (n = p->notes; n != NULL; n = n->next)
+                        fprintf_s(html, "%s<br>", escq(notebuf, n->note));
+                    fprintf_s(html, "\') }\n");
+                }
+
+                fprintf_s(html, "</script>\n");
+                fprintf_s(html, "</head>\n");
+                fprintf_s(html, "<body>\n");
+                slosh = strrchr(jpeg_filename, '\\');   // strip directory string from filename. It will be there (from GetSaveFileName)
+                fprintf_s(html, "<img src=\"%s\" border=0 usemap=\"#link\">\n", slosh + 1);
+                fprintf_s(html, "<map name=\"link\">\n");
+
+                // Image map with an area for each person
+                for (i = 0; i < n_person; i++)
+                {
+                    p = lookup_person[i];
+                    if (p == NULL || p->xbox < 0)
+                        continue;
+                    fprintf_s(html, "<area shape=\"RECT\" href=\"javascript:void()\" coords=\"%d,%d,%d,%d\" ",
+                              p->xbox, p->ybox, p->xbox + box_width, p->ybox + box_height);
+                    fprintf_s(html, "onClick=\"popf(person%04d)\">\n", p->id);
+                }
+
+                fprintf_s(html, "</map>\n");
+                fprintf_s(html, "</body>\n");
+                fprintf_s(html, "</HTML>\n");
+                fclose(html);
             }
-            jpeg_finish_compress(&cinfo);
-            jpeg_destroy_compress(&cinfo);
-            free(lpbitmap);
-            DeleteObject(hbmp);
-            DeleteDC(hdcMem);
-
-            // Write HTML with image map over the image
-            fopen_s(&html, html_filename, "wt");
-            fprintf_s(html, "<HTML>\n");
-            fprintf_s(html, "<head>\n");
-            fprintf_s(html, "<title>%s</title>\n", html_filename);
-            fprintf_s(html, "<script type=\"text/javascript\">\n");
-            fprintf_s(html, "var w\n");
-            fprintf_s(html, "function popf(fn)\n");
-            fprintf_s(html, "{\n");
-            fprintf_s(html, "if (w != undefined && !w.closed)\n");
-            fprintf_s(html, "    w.close()\n");
-            fprintf_s(html, "  w = window.open('', '', 'width=400, height=400')\n");
-            fprintf_s(html, "  fn(w)\n");
-            fprintf_s(html, "  w.focus()\n");
-            fprintf_s(html, "}\n");
-
-            // A function to fill window contents for each person mentioned in the chart
-            for (i = 0; i < n_person; i++)
-            {
-                Event *ev;
-                Note *n;
-
-                p = lookup_person[i];
-                if (p == NULL || p->xbox < 0)
-                    continue;
-                fprintf_s(html, "function person%04d(w) { ", p->id);
-                fprintf_s(html, "w.document.write(\'%d: %s %s<br>",
-                          p->id, escq(buf, p->given), escq(buf2, p->surname));
-                for (ev = p->event; ev != NULL; ev = ev->next)
-                    fprintf_s(html, "%s %s %s<br>", codes[ev->type].display, escq(buf, ev->date), escq(buf2, ev->place));
-                for (n = p->notes; n != NULL; n = n->next)
-                    fprintf_s(html, "%s<br>", escq(notebuf, n->note));
-                fprintf_s(html, "\') }\n");
-            }
-
-            fprintf_s(html, "</script>\n");
-            fprintf_s(html, "</head>\n");
-            fprintf_s(html, "<body>\n");
-            slosh = strrchr(jpeg_filename, '\\');   // strip directory string from filename. It will be there (from GetSaveFileName)
-            fprintf_s(html, "<img src=\"%s\" border=0 usemap=\"#link\">\n", slosh + 1);
-            fprintf_s(html, "<map name=\"link\">\n");
-
-            // Image map with an area for each person
-            for (i = 0; i < n_person; i++)
-            {
-                p = lookup_person[i];
-                if (p == NULL || p->xbox < 0)
-                    continue;
-                fprintf_s(html, "<area shape=\"RECT\" href=\"javascript:void()\" coords=\"%d,%d,%d,%d\" ",
-                          p->xbox, p->ybox, p->xbox + box_width, p->ybox + box_height);
-                fprintf_s(html, "onClick=\"popf(person%04d)\">\n", p->id);
-            }
-
-            fprintf_s(html, "</map>\n");
-            fprintf_s(html, "</body>\n");
-            fprintf_s(html, "</HTML>\n");
-            fclose(html);
-            break;
+            goto generate_chart;
 
         case ID_FILE_PAGESETUP:
             prd.Flags = PD_PRINTSETUP | PD_RETURNDC;
@@ -1934,6 +1966,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (hMenu == GetSubMenu(GetMenu(hWnd), 0))
         {
             EnableMenuItem(hMenu, ID_FILE_CLOSE, prefs->root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            EnableMenuItem(hMenu, ID_FILE_SAVE, prefs->root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            EnableMenuItem(hMenu, ID_FILE_SAVEAS, prefs->root_person != NULL ? MF_ENABLED : MF_GRAYED);
+            EnableMenuItem(hMenu, ID_FILE_EXPORT, prefs->root_person != NULL ? MF_ENABLED : MF_GRAYED);
             EnableMenuItem(hMenu, ID_FILE_PRINT, prefs->root_person != NULL ? MF_ENABLED : MF_GRAYED);
         }
         else if (hMenu == GetSubMenu(GetMenu(hWnd), 1))
