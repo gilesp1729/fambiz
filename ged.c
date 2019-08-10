@@ -308,15 +308,15 @@ read_ged(char *filename)
 {
     FILE *ged;
     char buf[MAX_NOTESIZE], *ref, *tag;
-    int id, root_id;
+    int id;
     char *ctxt = NULL;
     Event *ev;
 
     // Clear lookup arrays to NULL pointers.
-    prefs.root_person = NULL;
-    root_id = 0;
+    prefs->root_person = NULL;
     n_person = 0;
     n_family = 0;
+    n_views = 0;
     memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
     memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
 
@@ -342,11 +342,16 @@ read_ged(char *filename)
             if (strcmp(tag, "INDI") == 0)
             {
                 Person *p = find_person(id);
-                int lev;
+                int i, lev;
 
-                // IF we've seen a _VIEW tag, set up the root person.
-                if (root_id != 0 && root_id == id)
-                    prefs.root_person = p;
+                // IF we've seen a _VIEW tag(s), set up the root person when we encounter them.
+                for (i = 0; i < n_views; i++)
+                {
+                    ViewPrefs *vp = &view_prefs[i];
+
+                    if (vp->root_id != 0 && vp->root_id == id)
+                        vp->root_person = p;
+                }
 
                 skip_ged(ged, 1);       // absorb the first level number
                 while (1)
@@ -609,29 +614,31 @@ read_ged(char *filename)
                 }
             }
         }
-        else if (strcmp(ref, "_VIEW") == 0)     // This is a Fambiz file with view parameters
+        else if (strcmp(ref, "_VIEW") == 0)     // This is a Fambiz file with view parameters, possibly multiple
         {
+            ViewPrefs *vp = &view_prefs[n_views++];
+
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                root_id = atoi(ref);
+                vp->root_id = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                prefs.view_desc = atoi(ref);
+                vp->view_desc = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                prefs.view_anc = atoi(ref);
+                vp->view_anc = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                prefs.desc_limit = atoi(ref);
+                vp->desc_limit = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                prefs.anc_limit = atoi(ref);
+                vp->anc_limit = atoi(ref);
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
-                prefs.zoom_percent = atoi(ref);
+                vp->zoom_percent = atoi(ref);
             ref = strtok_s(NULL, "\n", &ctxt);    // title may contain spaces
             if (ref != NULL)
-                strcpy_s(prefs.title, MAXSTR, ref);
+                strcpy_s(vp->title, MAXSTR, ref);
 
             if (skip_ged(ged, 0) < 0)
                 break;
@@ -685,7 +692,16 @@ write_ged(char *filename)
     fprintf_s(ged, "1 FILE %s\n", filename);
 
     // Write out the view parameters.
-    fprintf_s(ged, "0 _VIEW %d %d %d %d %d %d %s\n", prefs.root_person->id, prefs.view_desc, prefs.view_anc, prefs.desc_limit, prefs.anc_limit, prefs.zoom_percent, prefs.title);
+    for (i = 0; i < n_views; i++)
+    {
+        ViewPrefs *vp = &view_prefs[i];
+
+        fprintf_s(ged, "0 _VIEW %d %d %d %d %d %d %s\n", 
+                  vp->root_person->id, 
+                  vp->view_desc, vp->view_anc, 
+                  vp->desc_limit, prefs->anc_limit, 
+                  vp->zoom_percent, vp->title);
+    }
 
     for (i = 0; i <= n_person; i++)
     {

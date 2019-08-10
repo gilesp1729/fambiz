@@ -5,6 +5,7 @@
 #include <windowsx.h>
 #include <stdio.h>
 
+
 // Dialog boxes for editing persons, families etc.
 
 LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -356,55 +357,115 @@ LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     return 0;
 }
 
-LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+// Load prefs settings to the dialog, and save them from the dialog.
+void load_prefs(HWND hDlg, ViewPrefs *prefs)
 {
     char buf[MAXSTR];
     int i, indx, root_index;
 
+    SetDlgItemText(hDlg, IDC_PREFS_TITLE, prefs->title);
+    SetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, prefs->desc_limit, FALSE);
+    SetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, prefs->anc_limit, FALSE);
+    for (i = 1; i <= n_person; i++)
+    {
+        Person *p = lookup_person[i];
+        Event *ev;
+
+        if (p != NULL)
+        {
+            ev = find_event(EV_BIRTH, &p->event);
+            sprintf_s(buf, MAXSTR, "%d: %s %s (%s)", p->id, p->given, p->surname, ev->date);
+            indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_ADDSTRING, 0, (LPARAM)buf);
+            if (p == prefs->root_person)
+                root_index = indx;
+        }
+    }
+    SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_SETCURSEL, root_index, 0);
+    SetDlgItemInt(hDlg, IDC_PREFS_ZOOM, prefs->zoom_percent, FALSE);
+    CheckDlgButton(hDlg, IDC_PREFS_VIEW_DESC, prefs->view_desc ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(hDlg, IDC_PREFS_VIEW_ANC, prefs->view_anc ? BST_CHECKED : BST_UNCHECKED);
+}
+
+void save_prefs(HWND hDlg, ViewPrefs *prefs)
+{
+    char buf[MAXSTR];
+    int i, indx;
+
+    GetDlgItemText(hDlg, IDC_PREFS_TITLE, prefs->title, MAXSTR);
+    prefs->desc_limit = GetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, NULL, FALSE);
+    prefs->anc_limit = GetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, NULL, FALSE);
+    indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETCURSEL, 0, 0);
+    SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETLBTEXT, indx, (LPARAM)buf);
+    i = atoi(buf);
+    prefs->root_person = lookup_person[i];
+    prefs->zoom_percent = GetDlgItemInt(hDlg, IDC_PREFS_ZOOM, NULL, FALSE);
+    prefs->view_desc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_DESC);
+    prefs->view_anc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_ANC);
+}
+
+LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    int i, view_index = 0;
+    char buf[MAXSTR];
+    static BOOL text_changed;
+
     switch (message)
     {
     case WM_INITDIALOG:
-        SetDlgItemText(hDlg, IDC_PREFS_TITLE, prefs.title);
-        SetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, prefs.desc_limit, FALSE);
-        SetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, prefs.anc_limit, FALSE);
-        for (i = 1; i <= n_person; i++)
+        for (i = 0; i < n_views; i++)
         {
-            Person *p = lookup_person[i];
-            Event *ev;
+            ViewPrefs *vp = &view_prefs[i];
 
-            if (p != NULL)
-            {
-                ev = find_event(EV_BIRTH, &p->event);
-                sprintf_s(buf, MAXSTR, "%d: %s %s (%s)", p->id, p->given, p->surname, ev->date);
-                indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_ADDSTRING, 0, (LPARAM)buf);
-                if (p == prefs.root_person)
-                    root_index = indx;
-            }
+            SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_INSERTSTRING, i, (LPARAM)vp->title);
+            if (prefs == vp)
+                view_index = i;
         }
-        SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_SETCURSEL, root_index, 0);
-        SetDlgItemInt(hDlg, IDC_PREFS_ZOOM, prefs.zoom_percent, FALSE);
-        CheckDlgButton(hDlg, IDC_PREFS_VIEW_DESC, prefs.view_desc ? BST_CHECKED : BST_UNCHECKED);
-        CheckDlgButton(hDlg, IDC_PREFS_VIEW_ANC, prefs.view_anc ? BST_CHECKED : BST_UNCHECKED);
+        SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_SETCURSEL, view_index, 0);
+        load_prefs(hDlg, prefs);
+        text_changed = FALSE;
         return 0;
 
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
         case IDOK:
-            GetDlgItemText(hDlg, IDC_PREFS_TITLE, prefs.title, MAXSTR);
-            prefs.desc_limit = GetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, NULL, FALSE);
-            prefs.anc_limit = GetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, NULL, FALSE);
-            indx = SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETCURSEL, 0, 0);
-            SendDlgItemMessage(hDlg, IDC_COMBO_PERSONS, CB_GETLBTEXT, indx, (LPARAM)buf);
-            i = atoi(buf);
-            prefs.root_person = lookup_person[i];
-            prefs.zoom_percent = GetDlgItemInt(hDlg, IDC_PREFS_ZOOM, NULL, FALSE);
-            prefs.view_desc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_DESC);
-            prefs.view_anc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_ANC);
+            save_prefs(hDlg, prefs);
             // fall through
         case IDCANCEL:
             EndDialog(hDlg, LOWORD(wParam));
             return 1;
+
+        case IDC_COMBO_VIEW:
+            switch (HIWORD(wParam))
+            {
+            case CBN_SELCHANGE:
+                save_prefs(hDlg, prefs);
+                i = SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_GETCURSEL, 0, 0);
+                prefs = &view_prefs[i];
+                load_prefs(hDlg, prefs);
+                break;
+
+            case CBN_EDITCHANGE:
+                text_changed = TRUE;
+                break;
+
+            case CBN_KILLFOCUS:
+                if (text_changed && n_views < MAX_PREFS - 1)
+                {
+                    text_changed = FALSE;
+                    SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, WM_GETTEXT, MAXSTR, (LPARAM)buf);
+                    if (prefs->title[0] != '\0')  // just overwrite if file has no views in it, otherwise new
+                    {
+                        prefs = &view_prefs[n_views++];
+                        *prefs = default_prefs;
+                    }
+                    strcpy_s(prefs->title, MAXSTR, buf);
+                    SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_ADDSTRING, 0, (LPARAM)prefs->title);
+                    load_prefs(hDlg, prefs);
+                }
+                break;
+            }
+            break;
         }
         break;
     }

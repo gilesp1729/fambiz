@@ -12,6 +12,9 @@
 #define MAX_GEN     30
 #define CENTRE_GEN  15
 
+// Max number of view preference settings
+#define MAX_PREFS 32
+
 // Extend this to include all the silly little cases in the GEDCOM event
 typedef enum
 {
@@ -110,6 +113,7 @@ typedef struct ViewPrefs
 {
     char        title[MAXSTR];      // Title of view
     Person      *root_person;       // Root person of view
+    int         root_id;            // ID of root person (used only when reading in the GED file)
     BOOL        view_desc;          // TRUE to view descendants
     BOOL        view_anc;           // TRUE to view ancestors
     int         desc_limit;         // How many descendant generations to view (0 = no limit)
@@ -125,7 +129,10 @@ extern Family *lookup_family[];
 extern int n_person;
 extern int n_family;
 extern Code codes[];
-extern ViewPrefs prefs;
+extern ViewPrefs *prefs;
+extern ViewPrefs default_prefs;
+extern ViewPrefs view_prefs[];
+extern int n_views;
 
 
 // Macros

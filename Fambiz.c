@@ -31,17 +31,6 @@ Family *lookup_family[MAX_FAMILY];              // Lookup array by family ID
 int n_person = 0;                               // Last person ID found (note: not number of persons. They start at 1)
 int n_family = 0;                               // Last family ID found
 
-ViewPrefs prefs = 
-{
-    "\0",       // Title of view
-    NULL,       // Root person of view
-    TRUE,       // TRUE to view descendants
-    FALSE,      // TRUE to view ancestors
-    0,          // How many descendant generations to view (0 = no limit)
-    0,          // How many ancestor gens similary
-    200         // The zoom percentage of the view
-};
-
 // Forward declarations of functions included in this code module:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
 HWND				InitInstance(HINSTANCE, int);
