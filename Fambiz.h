@@ -13,7 +13,7 @@
 #define CENTRE_GEN  15
 
 // Max number of view preference settings
-#define MAX_PREFS 32
+#define MAX_PREFS 16
 
 // Extend this to include all the silly little cases in the GEDCOM event
 typedef enum

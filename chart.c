@@ -315,12 +315,19 @@ draw_box(HDC hdc, Person *p)
     int y_box = (p->generation - anc_generations) * (box_height + min_spacing) + (min_spacing / 2) - v_scrollpos;
     int x_text, y_text;
     Event *ev;
+    HPEN hPenOld = NULL;
     char buf[MAXSTR];
 
     if (p == highlight_person)
         SelectObject(hdc, GetStockObject(LTGRAY_BRUSH));
     else
         SelectObject(hdc, GetStockObject(WHITE_BRUSH));
+
+    if (p->show_link)
+    {
+        SetDCPenColor(hdc, RGB(0, 0, 0xEE));
+        hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
+    }
 
     y_text = y_box + small_space;
     if (p->sex[0] == 'M')
@@ -334,9 +341,12 @@ draw_box(HDC hdc, Person *p)
             Rectangle(hdc, x_box + d, y_box + d, x_box + box_width + d, y_box + box_height + d);
         }
         Rectangle(hdc, x_box, y_box, x_box + box_width, y_box + box_height);
-        if (p == prefs->root_person)
-            Rectangle(hdc, x_box + 2, y_box + 2, x_box + box_width - 2, y_box + box_height - 2);
         x_text = x_box + small_space;
+        if (p == prefs->root_person || p->show_link)
+        {
+            Rectangle(hdc, x_box + 2, y_box + 2, x_box + box_width - 2, y_box + box_height - 2);
+            x_text += 2;
+        }
     }
     else
     {
@@ -349,10 +359,16 @@ draw_box(HDC hdc, Person *p)
             RoundRect(hdc, x_box + d, y_box + d, x_box + box_width + d, y_box + box_height + d, round_diam, round_diam);
         }
         RoundRect(hdc, x_box, y_box, x_box + box_width, y_box + box_height, round_diam, round_diam);
-        if (p == prefs->root_person)
-            RoundRect(hdc, x_box + 2, y_box + 2, x_box + box_width - 2, y_box + box_height - 2, round_diam, round_diam);
         x_text = x_box + 2 * small_space;
+        if (p == prefs->root_person || p->show_link)
+        {
+            RoundRect(hdc, x_box + 2, y_box + 2, x_box + box_width - 2, y_box + box_height - 2, round_diam, round_diam);
+            x_text += 2;
+        }
     }
+
+    if (p->show_link)
+        SelectObject(hdc, hPenOld);
 
     // Wrap text at the surname if it won't fit.
     sprintf_s(buf, MAXSTR, "%s %s", p->given, p->surname);
@@ -998,6 +1014,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (!GetSaveFileName(&ofn))
                 break;
 
+            SetCursor(LoadCursor(NULL, IDC_WAIT));
             for (v = 0; v < n_views; v++)
             {
                 ViewPrefs *vp = &view_prefs[v];
@@ -1097,7 +1114,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 for (i = bmp.bmHeight; i >= 0; i--)
                 {
+                    char *r, *b;
+
+                    // Swap BGR to RGB.
                     GetDIBits(hdc, hbmp, i, 1, lpbitmap, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
+                    for (j = 0, b = lpbitmap, r = lpbitmap+2; j < bmp.bmWidth; j++, b+=3, r+=3)
+                    {
+                        char temp = *b;
+                        *b = *r;
+                        *r = temp;
+                    }
                     jpeg_write_scanlines(&cinfo, &lpbitmap, 1);
                 }
                 jpeg_finish_compress(&cinfo);
@@ -1144,7 +1170,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 fprintf_s(html, "</script>\n");
                 fprintf_s(html, "</head>\n");
                 fprintf_s(html, "<body>\n");
-                slosh = strrchr(jpeg_filename, '\\');   // strip directory string from filename. It will be there (from GetSaveFileName)
+
+                // Link texts for views other than this one
+                for (i = 0; i < n_views; i++)
+                {
+                    ViewPrefs *vp = &view_prefs[i];
+
+                    if (i == v)     // This view, just write the title
+                    {
+                        fprintf_s(html, "%s<br>\n", vp->title);
+                    }
+                    else            // Another view, put the title as a link
+                    {
+                        strcpy_s(buf, MAXSTR, html_basename);
+                        strcat_s(buf, MAXSTR, "_");
+                        strcat_s(buf, MAXSTR, vp->title);
+                        clean_blanks(buf);
+                        strcat_s(buf, MAXSTR, ".html");
+                        slosh = strrchr(buf, '\\');
+                        fprintf_s(html, "<a href=\"%s\">%s</a><br>\n", slosh + 1, vp->title);
+                    }
+                }
+
+
+                // strip directory string from filename. It will be there (from GetSaveFileName)
+                slosh = strrchr(jpeg_filename, '\\');
                 fprintf_s(html, "<img src=\"%s\" border=0 usemap=\"#link\">\n", slosh + 1);
                 fprintf_s(html, "<map name=\"link\">\n");
 
@@ -1178,6 +1228,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 fprintf_s(html, "</HTML>\n");
                 fclose(html);
             }
+            SetCursor(LoadCursor(NULL, IDC_ARROW));
             goto generate_chart;
 
         case ID_FILE_PAGESETUP:
@@ -2006,6 +2057,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EnableMenuItem(hMenu, ID_VIEW_ANCESTORS, prefs->root_person != NULL ? MF_ENABLED : MF_GRAYED);
             CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, prefs->view_desc ? MF_CHECKED : MF_UNCHECKED);
             CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, prefs->view_anc ? MF_CHECKED : MF_UNCHECKED);
+#if 0 // the deletion isn't working properly.
+            for (i = 0; i < MAX_PREFS; i++)
+                DeleteMenu(hMenu, 8 + i, MF_BYPOSITION);        // after pos 8 in menu
+            for (i = 0; i < n_views; i++)
+            {
+                ViewPrefs *vp = &view_prefs[i];
+
+                AppendMenu(hMenu, vp == prefs ? MF_CHECKED : MF_UNCHECKED, 9999 + i, vp->title);
+            }
+#endif
         }
 
         break;
