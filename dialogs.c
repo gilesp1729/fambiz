@@ -481,7 +481,7 @@ LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
     case WM_INITDIALOG:
-        sprintf_s(buf, MAXSTR, "Family Business, Version 0.1, Build %s", __DATE__);
+        sprintf_s(buf, MAXSTR, "Family Business, Version 1.0, Build %s", __DATE__);
         SetDlgItemText(hDlg, IDC_STATIC_VERSION, buf);
         return 1;
 

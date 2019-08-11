@@ -658,6 +658,20 @@ void check_before_closing(HWND hWnd)
     }
 }
 
+// Clear all data.
+void clear_all(void)
+{
+    n_person = 0;
+    n_family = 0;
+    n_views = 0;
+    memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
+    memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
+    prefs->root_person = NULL;
+    curr_filename[0] = '\0';
+    view_prefs[0] = default_prefs;
+    prefs = &view_prefs[0];
+}
+
 // Remove spaces from a filename (leave any prepended directory alone, though).
 // Replace them wth underscores.
 void clean_blanks(char *string)
@@ -957,11 +971,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         case ID_FILE_NEW:
             check_before_closing(hWnd);
-            n_person = 0;
-            n_family = 0;
-            memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
-            memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
-
+            clear_all();
             prefs->root_person = highlight_person = new_person_by_id(1);
             curr_filename[0] = '\0';
             SetWindowText(hWnd, "Family Business");
@@ -984,13 +994,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         case ID_FILE_CLOSE:
             check_before_closing(hWnd);
-            n_person = 0;
-            n_family = 0;
-            memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
-            memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
-
-            prefs->root_person = NULL;
-            curr_filename[0] = '\0';
+            clear_all();
             InvalidateRect(hWnd, NULL, TRUE);
             SetWindowText(hWnd, "Family Business");
             break;
@@ -1408,12 +1412,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             break;
 
+        case 9999:              // choose a new view
+        case 9999 + 1:
+        case 9999 + 2:
+        case 9999 + 3:
+        case 9999 + 4:
+        case 9999 + 5:
+        case 9999 + 6:
+        case 9999 + 7:
+        case 9999 + 8:
+        case 9999 + 9:
+        case 9999 + 10:
+        case 9999 + 11:
+        case 9999 + 12:
+        case 9999 + 13:
+        case 9999 + 14:
+        case 9999 + 15:
+            prefs = &view_prefs[wmId - 9999];
+            goto generate_chart;
+
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;
 
         case IDM_EXIT:
             check_before_closing(hWnd);
+            clear_all();
             DestroyWindow(hWnd);
             break;
 
@@ -2057,8 +2081,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EnableMenuItem(hMenu, ID_VIEW_ANCESTORS, prefs->root_person != NULL ? MF_ENABLED : MF_GRAYED);
             CheckMenuItem(hMenu, ID_VIEW_DESCENDANTS, prefs->view_desc ? MF_CHECKED : MF_UNCHECKED);
             CheckMenuItem(hMenu, ID_VIEW_ANCESTORS, prefs->view_anc ? MF_CHECKED : MF_UNCHECKED);
-#if 0 // the deletion isn't working properly.
-            for (i = 0; i < MAX_PREFS; i++)
+
+            for (i = MAX_PREFS - 1; i >= 0; i--)
                 DeleteMenu(hMenu, 8 + i, MF_BYPOSITION);        // after pos 8 in menu
             for (i = 0; i < n_views; i++)
             {
@@ -2066,7 +2090,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 AppendMenu(hMenu, vp == prefs ? MF_CHECKED : MF_UNCHECKED, 9999 + i, vp->title);
             }
-#endif
         }
 
         break;
@@ -2082,6 +2105,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_CLOSE:
         check_before_closing(hWnd);
+        clear_all();
         // fall through
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
