@@ -567,20 +567,18 @@ draw_anc_boxes(HDC hdc, Person *p)
 }
 
 void
-update_scrollbars(HWND hWnd, int max_offset, int num_generations)
+update_scrollbars(HWND hWnd)
 {
     RECT rc;
     SCROLLINFO hscrollinfo, vscrollinfo;
 
     GetClientRect(hWnd, &rc);
 
-    h_scrollwidth = (max_offset + 1) * ((BOX_WIDTH + MIN_SPACING) * prefs->zoom_percent) / 100;
     if (h_scrollpos < 0 || h_scrollwidth - (rc.right - rc.left - 1) < 0)
         h_scrollpos = 0;
     else if (h_scrollpos > h_scrollwidth - (rc.right - rc.left - 1) < 0)
         h_scrollpos = h_scrollwidth - (rc.right - rc.left - 1);
 
-    v_scrollheight = (num_generations + 1) * ((BOX_HEIGHT + MIN_SPACING) * prefs->zoom_percent) / 100;
     if (v_scrollpos < 0 || v_scrollheight - (rc.bottom - rc.top - 1) < 0)
         v_scrollpos = 0;
     else if (v_scrollpos > v_scrollheight - (rc.bottom - rc.top - 1) < 0)
@@ -815,6 +813,8 @@ void generate_chart(ViewPrefs *prefs)
         if (prefs->view_anc)
             determine_anc_offsets(prefs->root_person, 0);
     }
+    h_scrollwidth = (max_offset + 1) * ((BOX_WIDTH + MIN_SPACING) * prefs->zoom_percent) / 100;
+    v_scrollheight = (desc_generations - anc_generations + 1) * ((BOX_HEIGHT + MIN_SPACING) * prefs->zoom_percent) / 100;
 }
 
 //
@@ -931,7 +931,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 p = prefs->root_person;
             h_scrollpos = p->offset * (box_width + min_spacing) - (screensizex / 2);
             v_scrollpos = (p->generation - anc_generations) * (box_height + min_spacing) - (screensizey / 2);
-            update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);  // anc_generations is negative
+            update_scrollbars(hWnd);
 
             // Update window title to reflect file and chart size
         update_titlebar:
@@ -1354,7 +1354,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     v_scrollpos = v_scrollheight - (rc.bottom - rc.top - 1);
 
                 modified = TRUE;
-                update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
+                update_scrollbars(hWnd);
                 goto update_titlebar;
             }
             break;
@@ -1380,7 +1380,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     v_scrollpos = v_scrollheight - (rc.bottom - rc.top - 1);
 
                 modified = TRUE;
-                update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
+                update_scrollbars(hWnd);
                 goto update_titlebar;
             }
             break;
@@ -2097,7 +2097,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
         if (prefs->root_person != NULL)
-            update_scrollbars(hWnd, max_offset, desc_generations - anc_generations);
+            update_scrollbars(hWnd);
         break;
 
     case WM_DESTROY:
