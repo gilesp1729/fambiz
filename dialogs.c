@@ -405,13 +405,15 @@ void save_prefs(HWND hDlg, ViewPrefs *prefs)
 
 LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    int i, view_index = 0;
+    int i;
+    static int view_index;
     char buf[MAXSTR];
     static BOOL text_changed;
 
     switch (message)
     {
     case WM_INITDIALOG:
+        view_index = 0;
         for (i = 0; i < n_views; i++)
         {
             ViewPrefs *vp = &view_prefs[i];
@@ -421,6 +423,7 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
                 view_index = i;
         }
         SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_SETCURSEL, view_index, 0);
+        SetDlgItemInt(hDlg, IDC_STATIC_VIEW_INDEX, view_index, FALSE);
         load_prefs(hDlg, prefs);
         text_changed = FALSE;
         return 0;
@@ -435,13 +438,37 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
             EndDialog(hDlg, LOWORD(wParam));
             return 1;
 
+        case IDC_PREFS_DELETE:
+            if (n_views == 1)   // deleteing last view, just reset it all to defaults
+            {
+                view_index = 0;  // must be already 0
+                *prefs = default_prefs;
+                SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_RESETCONTENT, 0, 0);
+            }
+            else
+            {
+                SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_DELETESTRING, view_index, 0);
+                for (i = view_index + 1; i < n_views; i++)  // shuffle rest down
+                    view_prefs[i - 1] = view_prefs[i];
+                n_views--;
+                if (view_index == n_views)
+                {
+                    view_index--;
+                    prefs = &view_prefs[view_index];
+                }
+                SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_SETCURSEL, view_index, 0);
+            }
+            load_prefs(hDlg, prefs);
+            break;
+
         case IDC_COMBO_VIEW:
             switch (HIWORD(wParam))
             {
             case CBN_SELCHANGE:
                 save_prefs(hDlg, prefs);
-                i = SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_GETCURSEL, 0, 0);
-                prefs = &view_prefs[i];
+                view_index = SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_GETCURSEL, 0, 0);
+                SetDlgItemInt(hDlg, IDC_STATIC_VIEW_INDEX, view_index, FALSE);
+                prefs = &view_prefs[view_index];
                 load_prefs(hDlg, prefs);
                 break;
 
@@ -456,11 +483,13 @@ LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
                     SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, WM_GETTEXT, MAXSTR, (LPARAM)buf);
                     if (prefs->title[0] != '\0')  // just overwrite if file has no views in it, otherwise new
                     {
+                        view_index = n_views;
                         prefs = &view_prefs[n_views++];
                         *prefs = default_prefs;
                     }
                     strcpy_s(prefs->title, MAXSTR, buf);
                     SendDlgItemMessage(hDlg, IDC_COMBO_VIEW, CB_ADDSTRING, 0, (LPARAM)prefs->title);
+                    SetDlgItemInt(hDlg, IDC_STATIC_VIEW_INDEX, view_index, FALSE);
                     load_prefs(hDlg, prefs);
                 }
                 break;
