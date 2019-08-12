@@ -1233,6 +1233,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 fprintf_s(html, "</HTML>\n");
                 fclose(html);
             }
+
+            // Write index.html with links to all the views, so the web site works
+            strcpy_s(buf, MAXSTR, html_basename);
+            slosh = strrchr(buf, '\\');
+            *(slosh + 1) = '\0';
+            strcat_s(buf, MAXSTR - (slosh - buf), "index.html");
+            fopen_s(html, buf, "wt");
+            fprintf_s(html, "<HTML>\n");
+            fprintf_s(html, "<body>\n");
+            for (i = 0; i < n_views; i++)
+            {
+                ViewPrefs *vp = &view_prefs[i];
+
+                strcpy_s(buf, MAXSTR, html_basename);
+                strcat_s(buf, MAXSTR, "_");
+                strcat_s(buf, MAXSTR, vp->title);
+                clean_blanks(buf);
+                strcat_s(buf, MAXSTR, ".html");
+                slosh = strrchr(buf, '\\');
+                fprintf_s(html, "<a href=\"%s\">%s</a><br>\n", slosh + 1, vp->title);
+            }
+            fprintf_s(html, "</body>\n");
+            fprintf_s(html, "</HTML>\n");
+            fclose(html);
+
+            // Restore cursor and chart on screen
             SetCursor(LoadCursor(NULL, IDC_ARROW));
             goto generate_chart;
 
