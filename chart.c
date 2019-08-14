@@ -573,6 +573,8 @@ update_scrollbars(HWND hWnd)
     SCROLLINFO hscrollinfo, vscrollinfo;
 
     GetClientRect(hWnd, &rc);
+    h_scrollwidth = (max_offset + 1) * ((BOX_WIDTH + MIN_SPACING) * prefs->zoom_percent) / 100;
+    v_scrollheight = (desc_generations - anc_generations + 1) * ((BOX_HEIGHT + MIN_SPACING) * prefs->zoom_percent) / 100;
 
     if (h_scrollpos < 0 || h_scrollwidth - (rc.right - rc.left - 1) < 0)
         h_scrollpos = 0;
@@ -813,6 +815,8 @@ void generate_chart(ViewPrefs *prefs)
         if (prefs->view_anc)
             determine_anc_offsets(prefs->root_person, 0);
     }
+
+    // Recalculate chart extents
     h_scrollwidth = (max_offset + 1) * ((BOX_WIDTH + MIN_SPACING) * prefs->zoom_percent) / 100;
     v_scrollheight = (desc_generations - anc_generations + 1) * ((BOX_HEIGHT + MIN_SPACING) * prefs->zoom_percent) / 100;
 }
