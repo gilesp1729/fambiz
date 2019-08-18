@@ -53,6 +53,13 @@ typedef struct Note
     char        note[MAX_NOTESIZE];
 } Note;
 
+typedef struct Attachment
+{
+    struct Attachment *next;
+    char        title[MAXSTR];
+    char        filename[MAXSTR];
+} Attachment;
+
 typedef struct Person
 {
     int         id;                 // person ID number
@@ -62,6 +69,7 @@ typedef struct Person
     char        occupation[MAXSTR]; // any occupation given
     Note        *notes;             // List of notes
     Event       *event;             // List of events (birth, death, etc) with dates/places
+    Attachment  *attach;            // List of attachments (photos, documents)
     struct Family *family;          // Child to family link (the person is a child of this family)
     struct FamilyList *spouses;     // List of one or more families in which the person is a spouse
     BOOL        hidden;             // descendants/ancestors are hidden (collapsed) in chart
@@ -88,6 +96,7 @@ typedef struct Family
     int         id;                 // Family ID number
     Event       *event;             // List of events (marriage, divorce, etc) with dates/places
     Note        *notes;             // List of notes
+    Attachment  *attach;            // List of attachments (photos, documents)
     Person      *husband;           // Parents
     Person      *wife;
     PersonList  *children;          // List of children
@@ -126,6 +135,7 @@ typedef struct ViewPrefs
 // Externals
 extern HINSTANCE hInst;
 extern char curr_filename[];
+extern char attach_dir[];
 extern Person *lookup_person[];
 extern Family *lookup_family[];
 extern int n_person;
@@ -171,6 +181,7 @@ void register_family(Family *f);
 FamilyList *new_familylist(Family *f, FamilyList *family_list);
 Event *new_event(EVENT type, Event **event_list);
 Note *new_note(Note **note_list);
+Attachment *new_attachment(Attachment **att_list);
 Person *find_person(int id);
 Family *find_family(int id);
 Event *find_event(EVENT type, Event **event_list);

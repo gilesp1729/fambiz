@@ -24,6 +24,7 @@ TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
 
 char curr_filename[MAXSTR];                     // Current GEDCOM filename
+char attach_dir[MAXSTR];                        // Attachment directory
 
 // For now these are fixed arrays. Later we can do fancy reallocation if needed.
 Person *lookup_person[MAX_PERSON];              // Lookup array by person ID

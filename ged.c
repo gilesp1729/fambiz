@@ -151,6 +151,26 @@ Note *new_note(Note **note_list)
     return n;
 }
 
+// Create a new attachment and add it to the tail of the given list.
+Attachment *new_attachment(Attachment **att_list)
+{
+    Attachment *a = calloc(1, sizeof(Attachment));
+    Attachment *tail;
+
+    a->next = NULL;
+    if (*att_list == NULL)
+    {
+        *att_list = a;
+    }
+    else
+    {
+        for (tail = *att_list; tail->next != NULL; tail = tail->next)
+            ;
+        tail->next = a;
+    }
+    return a;
+}
+
 // Find an existing person (family, etc) and if not found, create it and add it to the lookup arrays.
 Person *find_person(int id)
 {
@@ -320,6 +340,9 @@ read_ged(char *filename)
     memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
     memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
 
+    // Clear attachment directory (use the first one found, or else "<basename>_Photos\" set by caller)
+    attach_dir[0] = '\0';
+
     fopen_s(&ged, filename, "rt");
     if (ged == NULL)
         return FALSE;
@@ -481,6 +504,63 @@ read_ged(char *filename)
                         else if (lev < 1)
                             break;
                     }
+                    else if (strcmp(tag, "OBJE") == 0)
+                    {
+                        Attachment *a = new_attachment(&p->attach);
+
+                        lev = skip_ged(ged, 2);
+                        if (lev == 2)
+                        {
+                            while (1)
+                            {
+                                fgets(buf, MAXSTR, ged);
+                                tag = strtok_s(buf, " \n", &ctxt);
+                                if (strcmp(tag, "TITL") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcpy_s(a->title, MAXSTR, ref);
+                                }
+                                else if (strcmp(tag, "FILE") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcpy_s(a->filename, MAXSTR, ref);
+
+                                    if (attach_dir[0] == '\0')
+                                    {
+                                        char *slosh, *dot;
+                                        
+                                        // If there is a directory in the filename, use that. But if not,
+                                        // we must assume the basename is used unchanged, as there is no
+                                        // other place in the file where the directory name is stored.
+                                        slosh = strrchr(a->filename, '\\');
+                                        if (slosh != NULL)
+                                        {
+                                            strcpy_s(attach_dir, MAXSTR, a->filename);
+                                            slosh = strrchr(attach_dir, '\\');
+                                            *(slosh + 1) = '\0';
+                                        }
+                                        else
+                                        {
+                                            strcpy_s(attach_dir, MAXSTR, filename);
+                                            dot = strrchr(attach_dir, '.');
+                                            *dot = '\\';
+                                            *(dot + 1) = '\0';
+                                        }
+                                    }
+                                }
+
+                                lev = skip_ged(ged, 2);
+                                if (lev < 2)
+                                    break;
+                            }
+                        }
+                        if (lev == 1)            // don't skip again at level 1
+                            continue;
+                        else if (lev < 1)
+                            break;
+                    }
 
 #if 0 // Do these linkages when processing the families.
                     else if (strcmp(tag, "FAMS") == 0)
@@ -607,6 +687,63 @@ read_ged(char *filename)
                         else if (lev < 1)
                             break;
                     }
+                    else if (strcmp(tag, "OBJE") == 0)
+                    {
+                        Attachment *a = new_attachment(&p->attach);
+
+                        lev = skip_ged(ged, 2);
+                        if (lev == 2)
+                        {
+                            while (1)
+                            {
+                                fgets(buf, MAXSTR, ged);
+                                tag = strtok_s(buf, " \n", &ctxt);
+                                if (strcmp(tag, "TITL") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcpy_s(a->title, MAXSTR, ref);
+                                }
+                                else if (strcmp(tag, "FILE") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcpy_s(a->filename, MAXSTR, ref);
+
+                                    if (attach_dir[0] == '\0')
+                                    {
+                                        char *slosh, *dot;
+
+                                        // If there is a directory in the filename, use that. But if not,
+                                        // we must assume the basename is used unchanged, as there is no
+                                        // other place in the file where the directory name is stored.
+                                        slosh = strrchr(a->filename, '\\');
+                                        if (slosh != NULL)
+                                        {
+                                            strcpy_s(attach_dir, MAXSTR, a->filename);
+                                            slosh = strrchr(attach_dir, '\\');
+                                            *(slosh + 1) = '\0';
+                                        }
+                                        else
+                                        {
+                                            strcpy_s(attach_dir, MAXSTR, filename);
+                                            dot = strrchr(attach_dir, '.');
+                                            *dot = '\\';
+                                            *(dot + 1) = '\0';
+                                        }
+                                    }
+                                }
+
+                                lev = skip_ged(ged, 2);
+                                if (lev < 2)
+                                    break;
+                            }
+                        }
+                        if (lev == 1)            // don't skip again at level 1
+                            continue;
+                        else if (lev < 1)
+                            break;
+                    }
 
                     // TODO other family tags
                     if (skip_ged(ged, 1) < 1)
@@ -672,6 +809,7 @@ write_ged(char *filename)
     char *line;
     Event *ev;
     Note *n;
+    Attachment *a;
     int i;
 
     fopen_s(&ged, filename, "wt");
@@ -752,6 +890,16 @@ write_ged(char *filename)
             }
         }
 
+        for (a = p->attach; a != NULL; a = a->next)
+        {
+            if (a->filename != NULL && a->filename[0] != '\0')
+            {
+                fprintf_s(ged, "1 OBJE\n");
+                fprintf_s(ged, "2 TITL %s\n", a->title);
+                fprintf_s(ged, "2 FILE %s\n", a->filename);
+            }
+        }
+
         if (p->family != NULL)
             fprintf_s(ged, "1 FAMC @F%d@\n", p->family->id);
         for (sl = p->spouses; sl != NULL; sl = sl->next)
@@ -798,7 +946,15 @@ write_ged(char *filename)
                 }
             }
         }
-
+        for (a = f->attach; a != NULL; a = a->next)
+        {
+            if (a->filename != NULL && a->filename[0] != '\0')
+            {
+                fprintf_s(ged, "1 OBJE\n");
+                fprintf_s(ged, "2 TITL %s\n", a->title);
+                fprintf_s(ged, "2 FILE %s\n", a->filename);
+            }
+        }
     }
 
     fprintf_s(ged, "0 TRLR\n");

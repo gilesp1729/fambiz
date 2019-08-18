@@ -668,6 +668,7 @@ void clear_all(void)
     memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
     prefs->root_person = NULL;
     curr_filename[0] = '\0';
+    attach_dir[0] = '\0';
     view_prefs[0] = default_prefs;
     prefs = &view_prefs[0];
 }
@@ -921,6 +922,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 prefs->root_person = lookup_person[1];
             if (n_views == 0)
                 n_views = 1;    // default view has already been set up
+            if (attach_dir[0] == '\0')
+            {
+                // If no photos or attachments have been seen, the default dir is "<basename>_Photos\"
+                strcpy_s(attach_dir, MAXSTR, curr_filename);
+                dot = strrchr(attach_dir, '.');
+                *dot = '\0';
+                strcat_s(attach_dir, MAXSTR, "_Photos\\");
+            }
 
         generate_chart:
             generate_chart(prefs);
