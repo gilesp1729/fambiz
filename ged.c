@@ -256,6 +256,34 @@ Note **remove_note(Note *note, Note **note_list)
     return NULL;
 }
 
+// Remove ann attachment from the list, if it exists. Return a pointer to the "next" pointer that points to 
+// the next one after the one deleted. If attachment doesn't exist returns NULL.
+Attachment **remove_attachment(Attachment *att, Attachment **att_list)
+{
+    Attachment *a;
+    Attachment *prev = NULL;
+
+    for (a = *att_list; a != NULL; prev = a, a = a->next)
+    {
+        if (a == att)
+        {
+            if (prev == NULL)   // first in list
+            {
+                *att_list = a->next;
+                free(a);
+                return att_list;
+            }
+            else
+            {
+                prev->next = a->next;
+                free(a);
+                return &prev->next;
+            }
+        }
+    }
+    return NULL;
+}
+
 // Remove a person from a personlist. ASSERT if it's not there.
 void remove_personlist(Person *p, PersonList **person_list)
 {

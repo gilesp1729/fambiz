@@ -165,6 +165,7 @@ LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    person_dialog(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK    family_dialog(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK    notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK    attachments_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK    prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
@@ -187,5 +188,6 @@ Family *find_family(int id);
 Event *find_event(EVENT type, Event **event_list);
 void remove_event(EVENT type, Event **event_list);
 Note **remove_note(Note *note, Note **note_list);
+Attachment **remove_attachment(Attachment *att, Attachment **att_list);
 void remove_personlist(Person *p, PersonList **person_list);
 void remove_familylist(Family *f, FamilyList **family_list);

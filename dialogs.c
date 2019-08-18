@@ -13,6 +13,7 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     static Person *p;
     Event *ev;
     Note **note_ptr;
+    Attachment **att_ptr;
     char buf[MAXSTR], date[MAXSTR], place[MAXSTR], cause[MAXSTR];
     int nd, np, nc, checked, cmd;
 
@@ -174,6 +175,27 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             }
             break;
 
+        case ID_PERSON_ATTACHMENTS:
+            att_ptr = &p->attach;
+        person_att_dlg:
+            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_ATTACHMENTS), hDlg, attachments_dialog, (LPARAM)att_ptr);
+            switch (cmd)
+            {
+            case IDOK:
+            case IDCANCEL:
+                break;
+
+            case ID_ATT_DELETE:
+                att_ptr = remove_attachment(*att_ptr, &p->attach);
+                goto person_att_dlg;
+                break;
+
+            case ID_ATT_NEXT:
+                att_ptr = &(*att_ptr)->next;
+                goto person_att_dlg;
+            }
+            break;
+
         case IDC_CHECK_DECEASED:
             checked = IsDlgButtonChecked(hDlg, IDC_CHECK_DECEASED);
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DEATH_DATE), checked);
@@ -196,6 +218,7 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     static Family *f;
     Event *ev;
     Note **note_ptr;
+    Attachment **att_ptr;
     char buf[MAXSTR], date[MAXSTR], place[MAXSTR];
     int nd, np, checked, cmd;
 
@@ -300,6 +323,26 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             }
             break;
 
+        case ID_PERSON_ATTACHMENTS:
+            att_ptr = &f->attach;
+        family_att_dlg:
+            cmd = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_ATTACHMENTS), hDlg, attachments_dialog, (LPARAM)att_ptr);
+            switch (cmd)
+            {
+            case IDOK:
+            case IDCANCEL:
+                break;
+
+            case ID_ATT_DELETE:
+                att_ptr = remove_attachment(*att_ptr, &f->attach);
+                goto family_att_dlg;
+
+            case ID_ATT_NEXT:
+                att_ptr = &(*att_ptr)->next;
+                goto family_att_dlg;
+            }
+            break;
+
         case IDC_CHECK_MARR:
             checked = IsDlgButtonChecked(hDlg, IDC_CHECK_MARR);
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_DATE), checked);
@@ -351,6 +394,53 @@ LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
             // These are handled outside
             EndDialog(hDlg, LOWORD(wParam));
             return 1;
+        }
+        break;
+    }
+    return 0;
+}
+
+LRESULT CALLBACK attachments_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    static Attachment **ap;
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        ap = (Attachment **)lParam;
+        if (*ap != NULL)
+        {
+            SetDlgItemText(hDlg, IDC_ATT_TITLE, (*ap)->title);
+            SetDlgItemText(hDlg, IDC_ATT_FILENAME, (*ap)->filename);
+        }
+        else
+        {
+            EnableWindow(GetDlgItem(hDlg, ID_ATT_NEXT), FALSE);
+        }
+        return 0;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDOK:
+            // Store the attachment at the given pointer or attach a new one to the tail.
+            if (*ap == NULL)
+                *ap = calloc(1, sizeof(Attachment));
+            GetDlgItemText(hDlg, IDC_ATT_TITLE, (*ap)->title, MAXSTR);
+            GetDlgItemText(hDlg, IDC_ATT_FILENAME, (*ap)->filename, MAXSTR);
+            // fall through
+        case IDCANCEL:
+        case ID_ATT_NEXT:
+        case ID_ATT_DELETE:
+            // These are handled outside
+            EndDialog(hDlg, LOWORD(wParam));
+            return 1;
+
+        case ID_ATT_VIEW:
+            WinExec((*ap)->filename, SW_SHOWNORMAL);   // TODO: this doesn't work. Need a Shell function?
+            break;
+
+        // TODO: Need a browse button for the file, or drag-n-drop
         }
         break;
     }
