@@ -3,6 +3,7 @@
 #include <CommCtrl.h>
 #include <CommDlg.h>
 #include <windowsx.h>
+#include <shellapi.h>
 #include <stdio.h>
 
 
@@ -403,6 +404,9 @@ LRESULT CALLBACK notes_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 LRESULT CALLBACK attachments_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static Attachment **ap;
+    char att_filename[MAXSTR];
+    static BOOL filename_entered;
+    OPENFILENAME ofn;
 
     switch (message)
     {
@@ -417,6 +421,7 @@ LRESULT CALLBACK attachments_dialog(HWND hDlg, UINT message, WPARAM wParam, LPAR
         {
             EnableWindow(GetDlgItem(hDlg, ID_ATT_NEXT), FALSE);
         }
+        filename_entered = FALSE;
         return 0;
 
     case WM_COMMAND:
@@ -426,8 +431,36 @@ LRESULT CALLBACK attachments_dialog(HWND hDlg, UINT message, WPARAM wParam, LPAR
             // Store the attachment at the given pointer or attach a new one to the tail.
             if (*ap == NULL)
                 *ap = calloc(1, sizeof(Attachment));
+
             GetDlgItemText(hDlg, IDC_ATT_TITLE, (*ap)->title, MAXSTR);
-            GetDlgItemText(hDlg, IDC_ATT_FILENAME, (*ap)->filename, MAXSTR);
+
+            // If a new filename has been entered from another directory, copy it into
+            // the attachements directory. Point the attachment entry at this new copy.
+            if (filename_entered)
+            {
+                char *slosh;
+                char att_dir[MAXSTR];
+
+                GetDlgItemText(hDlg, IDC_ATT_FILENAME, att_filename, MAXSTR);
+                strcpy_s(att_dir, MAXSTR, att_filename);
+                slosh = strrchr(att_dir, '\\');
+                *(slosh + 1) = '\0';
+
+                // check if dir of att_filename is the same as attach_dir
+                if (strcmp(att_dir, attach_dir) == 0)
+                {
+                    strcpy_s((*ap)->filename, MAXSTR, att_filename);
+                }
+                else
+                {
+                    char *slosh = strrchr(att_filename, '\\');
+
+                    strcpy_s((*ap)->filename, MAXSTR, attach_dir);
+                    strcat_s((*ap)->filename, MAXSTR, slosh + 1);
+                    CopyFile(att_filename, (*ap)->filename, FALSE);
+                }
+            }
+
             // fall through
         case IDCANCEL:
         case ID_ATT_NEXT:
@@ -437,10 +470,31 @@ LRESULT CALLBACK attachments_dialog(HWND hDlg, UINT message, WPARAM wParam, LPAR
             return 1;
 
         case ID_ATT_VIEW:
-            WinExec((*ap)->filename, SW_SHOWNORMAL);   // TODO: this doesn't work. Need a Shell function?
+            ShellExecute(hDlg, NULL, (*ap)->filename, NULL, NULL, SW_SHOWNORMAL);
             break;
 
-        // TODO: Need a browse button for the file, or drag-n-drop
+        case IDC_ATT_FILENAME:
+            if (HIWORD(wParam) == EN_CHANGE)
+                filename_entered = TRUE;
+            break;
+
+        case ID_ATT_BROWSE:
+            att_filename[0] = '\0';
+            memset(&ofn, 0, sizeof(OPENFILENAME));
+            ofn.lStructSize = sizeof(OPENFILENAME);
+            ofn.hwndOwner = hDlg;
+            ofn.lpstrFilter = "All Files\0*.*\0\0";
+            ofn.nFilterIndex = 1;
+            ofn.lpstrDefExt = "";
+            ofn.lpstrFile = att_filename;
+            ofn.nMaxFile = 256;
+            ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
+            if (GetOpenFileName(&ofn))
+            {
+                SetDlgItemText(hDlg, IDC_ATT_FILENAME, att_filename);
+                filename_entered = TRUE;
+            }
+            break;
         }
         break;
     }
