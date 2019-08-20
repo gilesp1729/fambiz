@@ -867,7 +867,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
     FILE *jpeg, *html;
-    char html_basename[MAXSTR], html_filename[MAXSTR], jpeg_filename[MAXSTR];
+    char html_basename[MAXSTR], html_filename[MAXSTR], jpeg_filename[MAXSTR], web_dir[MAXSTR];
     char *dot, *slosh;
 
     switch (message)
@@ -1025,14 +1025,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             memset(&ofn, 0, sizeof(OPENFILENAME));
             ofn.lStructSize = sizeof(OPENFILENAME);
             ofn.hwndOwner = hWnd;
-            //ofn.lpstrFilter = "HTML Files(*.HTML)\0 * .HTML\0All Files\0 * .*\0\0";
-            ofn.lpstrTitle = "Enter Basename for HTML Files";
+            ofn.lpstrTitle = "Enter Folder/Basename for Website Content";
             ofn.lpstrFile = html_basename;
             ofn.nMaxFile = MAXSTR;
-            ofn.Flags = OFN_PATHMUSTEXIST;
-            //ofn.lpstrDefExt = "html";
+            ofn.Flags = OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
             if (!GetSaveFileName(&ofn))
                 break;
+
+            // Obtain folder name to allow copying of attachments
+            strcpy_s(web_dir, MAXSTR, html_basename);
+            slosh = strrchr(web_dir, '\\');
+            *(slosh + 1) = '\0';
 
             SetCursor(LoadCursor(NULL, IDC_WAIT));
             for (v = 0; v < n_views; v++)
@@ -1173,6 +1176,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     Event *ev;
                     Note *n;
+                    Attachment *a;
+                    char *slosh;
 
                     p = lookup_person[i];
                     if (p == NULL || p->xbox < 0)
@@ -1182,8 +1187,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                               p->id, escq(buf, p->given), escq(buf2, p->surname));
                     for (ev = p->event; ev != NULL; ev = ev->next)
                         fprintf_s(html, "%s %s %s<br>", codes[ev->type].display, escq(buf, ev->date), escq(buf2, ev->place));
+
+                    fprintf_s(html, "<br>");
                     for (n = p->notes; n != NULL; n = n->next)
-                        fprintf_s(html, "%s<br>", escq(notebuf, n->note));
+                        fprintf_s(html, "%s<br><br>", escq(notebuf, n->note));
+
+                    for (a = p->attach; a != NULL; a = a->next)
+                    {
+                        char dest_file[MAXSTR];
+
+                        fprintf_s(html, "%s<br>", escq(buf, a->title));
+                        slosh = strrchr(a->filename, '\\');
+                        fprintf_s(html, "<img src=\"%s\"/><br>", slosh + 1);
+
+                        // Copy attachment file to web dir
+                        strcpy_s(dest_file, MAXSTR, web_dir);
+                        strcat_s(dest_file, MAXSTR, slosh + 1);
+                        CopyFile(a->filename, dest_file, FALSE);
+                    }
+
                     fprintf_s(html, "\') }\n");
                 }
 
