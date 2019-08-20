@@ -368,8 +368,9 @@ read_ged(char *filename)
     memset(lookup_person, 0, MAX_PERSON * sizeof(Person *));
     memset(lookup_family, 0, MAX_FAMILY * sizeof(Family *));
 
-    // Clear attachment directory (use the first one found, or else "<basename>_Photos\" set by caller)
+    // Clear attachment directory (use the first one found, or else the basename set by caller)
     attach_dir[0] = '\0';
+    attach_default = FALSE;
 
     fopen_s(&ged, filename, "rt");
     if (ged == NULL)
@@ -560,8 +561,7 @@ read_ged(char *filename)
                                         char *slosh, *dot;
                                         
                                         // If there is a directory in the filename, use that. But if not,
-                                        // we must assume the basename is used unchanged, as there is no
-                                        // other place in the file where the directory name is stored.
+                                        // we must assume the basename.
                                         slosh = strrchr(a->filename, '\\');
                                         if (slosh != NULL)
                                         {
@@ -575,7 +575,18 @@ read_ged(char *filename)
                                             dot = strrchr(attach_dir, '.');
                                             *dot = '\\';
                                             *(dot + 1) = '\0';
+                                            attach_default = TRUE;
                                         }
+                                    }
+
+                                    if (attach_default)
+                                    {
+                                        char basename[MAXSTR];
+
+                                        // Prepend the attachment directory to the filename.
+                                        strcpy_s(basename, MAXSTR, a->filename);
+                                        strcpy_s(a->filename, MAXSTR, attach_dir);
+                                        strcat_s(a->filename, MAXSTR, basename);
                                     }
                                 }
 
@@ -743,8 +754,7 @@ read_ged(char *filename)
                                         char *slosh, *dot;
 
                                         // If there is a directory in the filename, use that. But if not,
-                                        // we must assume the basename is used unchanged, as there is no
-                                        // other place in the file where the directory name is stored.
+                                        // we must assume the basename.
                                         slosh = strrchr(a->filename, '\\');
                                         if (slosh != NULL)
                                         {
@@ -758,7 +768,18 @@ read_ged(char *filename)
                                             dot = strrchr(attach_dir, '.');
                                             *dot = '\\';
                                             *(dot + 1) = '\0';
+                                            attach_default = TRUE;
                                         }
+                                    }
+
+                                    if (attach_default)
+                                    {
+                                        char basename[MAXSTR];
+
+                                        // Prepend the attachment directory to the filename.
+                                        strcpy_s(basename, MAXSTR, a->filename);
+                                        strcpy_s(a->filename, MAXSTR, attach_dir);
+                                        strcat_s(a->filename, MAXSTR, basename);
                                     }
                                 }
 
@@ -924,7 +945,17 @@ write_ged(char *filename)
             {
                 fprintf_s(ged, "1 OBJE\n");
                 fprintf_s(ged, "2 TITL %s\n", a->title);
-                fprintf_s(ged, "2 FILE %s\n", a->filename);
+                if (attach_default)
+                {
+                    char *slosh = strrchr(a->filename, '\\');
+
+                    // Write out filename unqualified.
+                    fprintf_s(ged, "2 FILE %s\n", slosh+1);
+                }
+                else
+                {
+                    fprintf_s(ged, "2 FILE %s\n", a->filename);
+                }
             }
         }
 
@@ -980,7 +1011,17 @@ write_ged(char *filename)
             {
                 fprintf_s(ged, "1 OBJE\n");
                 fprintf_s(ged, "2 TITL %s\n", a->title);
-                fprintf_s(ged, "2 FILE %s\n", a->filename);
+                if (attach_default)
+                {
+                    char *slosh = strrchr(a->filename, '\\');
+
+                    // Write out filename unqualified.
+                    fprintf_s(ged, "2 FILE %s\n", slosh + 1);
+                }
+                else
+                {
+                    fprintf_s(ged, "2 FILE %s\n", a->filename);
+                }
             }
         }
     }

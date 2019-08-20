@@ -669,6 +669,7 @@ void clear_all(void)
     prefs->root_person = NULL;
     curr_filename[0] = '\0';
     attach_dir[0] = '\0';
+    attach_default = FALSE;
     view_prefs[0] = default_prefs;
     prefs = &view_prefs[0];
 }
@@ -924,11 +925,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 n_views = 1;    // default view has already been set up
             if (attach_dir[0] == '\0')
             {
-                // If no photos or attachments have been seen, the default dir is "<basename>_Photos\"
+                // If no photos or attachments have been seen, the default dir is the file basename.
                 strcpy_s(attach_dir, MAXSTR, curr_filename);
                 dot = strrchr(attach_dir, '.');
                 *dot = '\0';
-                strcat_s(attach_dir, MAXSTR, "_Photos\\");
+                strcat_s(attach_dir, MAXSTR, "\\");
+                attach_default = TRUE;
             }
 
         generate_chart:

@@ -25,6 +25,7 @@ TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
 
 char curr_filename[MAXSTR];                     // Current GEDCOM filename
 char attach_dir[MAXSTR];                        // Attachment directory
+BOOL attach_default;                            // TRUE if attach_dir is same as basename
 
 // For now these are fixed arrays. Later we can do fancy reallocation if needed.
 Person *lookup_person[MAX_PERSON];              // Lookup array by person ID

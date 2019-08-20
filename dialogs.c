@@ -455,8 +455,10 @@ LRESULT CALLBACK attachments_dialog(HWND hDlg, UINT message, WPARAM wParam, LPAR
                 {
                     char *slosh = strrchr(att_filename, '\\');
 
+                    // Copy the file to attach_dir. Make sure it exists first.
                     strcpy_s((*ap)->filename, MAXSTR, attach_dir);
                     strcat_s((*ap)->filename, MAXSTR, slosh + 1);
+                    CreateDirectory(attach_dir, NULL);
                     CopyFile(att_filename, (*ap)->filename, FALSE);
                 }
             }

@@ -136,6 +136,7 @@ typedef struct ViewPrefs
 extern HINSTANCE hInst;
 extern char curr_filename[];
 extern char attach_dir[];
+extern BOOL attach_default;
 extern Person *lookup_person[];
 extern Family *lookup_family[];
 extern int n_person;
