@@ -57,7 +57,8 @@ typedef struct Attachment
 {
     struct Attachment *next;
     char        title[MAXSTR];
-    char        filename[MAXSTR];
+    char        filename[MAXSTR];   // Fully-qualified while in the program (not always in files)
+    BOOL        is_image;           // TRUE if the file is an image (web-browser-natively viewable)
 } Attachment;
 
 typedef struct Person

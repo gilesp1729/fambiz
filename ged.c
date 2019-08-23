@@ -2,6 +2,9 @@
 #include "Fambiz.h"
 #include <stdio.h>
 
+// Files with these extensions are viewble in a web browser.
+#define IMAGE_TYPES "jpg png mp4"
+
 // New person and fam structures.
 
 // Create a new person with the given ID. 
@@ -355,7 +358,7 @@ BOOL
 read_ged(char *filename)
 {
     FILE *ged;
-    char buf[MAX_NOTESIZE], *ref, *tag;
+    char buf[MAX_NOTESIZE], *ref, *tag, *slosh, *dot;
     int id;
     char *ctxt = NULL;
     Event *ev;
@@ -558,8 +561,6 @@ read_ged(char *filename)
 
                                     if (attach_dir[0] == '\0')
                                     {
-                                        char *slosh, *dot;
-                                        
                                         // If there is a directory in the filename, use that. But if not,
                                         // we must assume the basename.
                                         slosh = strrchr(a->filename, '\\');
@@ -588,6 +589,9 @@ read_ged(char *filename)
                                         strcpy_s(a->filename, MAXSTR, attach_dir);
                                         strcat_s(a->filename, MAXSTR, basename);
                                     }
+
+                                    dot = strrchr(a->filename, '.');
+                                    a->is_image = strstr(IMAGE_TYPES, dot + 1) != NULL;
                                 }
 
                                 lev = skip_ged(ged, 2);
@@ -751,8 +755,6 @@ read_ged(char *filename)
 
                                     if (attach_dir[0] == '\0')
                                     {
-                                        char *slosh, *dot;
-
                                         // If there is a directory in the filename, use that. But if not,
                                         // we must assume the basename.
                                         slosh = strrchr(a->filename, '\\');
@@ -781,6 +783,9 @@ read_ged(char *filename)
                                         strcpy_s(a->filename, MAXSTR, attach_dir);
                                         strcat_s(a->filename, MAXSTR, basename);
                                     }
+
+                                    dot = strrchr(a->filename, '.');
+                                    a->is_image = strstr(IMAGE_TYPES, dot + 1) != NULL;
                                 }
 
                                 lev = skip_ged(ged, 2);

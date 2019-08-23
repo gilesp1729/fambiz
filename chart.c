@@ -385,16 +385,42 @@ draw_box(HDC hdc, Person *p)
             wrap_text_out(hdc, x_text, &y_text, ev->place, strlen(ev->place));
     }
 
-    // Put a little icon at bottom right to indicate that there are notes on this person.
-    // TODO pictures (picture webding is 0x9F)
+    // Put little icons at bottom right to indicate that there are notes or attachments.
     if (p->notes != NULL)
     {
+        int icon_width = char_height;
         int icon_height = char_height * 1.2;
         HFONT hFont = CreateFont(icon_height, 0, 0, 0, 0, 0, 0, 0, SYMBOL_CHARSET, 0, 0, 0, 0, "Webdings");
         HFONT font_old = SelectObject(hdc, hFont);
         char notepad[2] = { 0xA5, 0 };   // notepad webding
 
-        TextOut(hdc, x_box + box_width - icon_height, y_box + box_height - icon_height - small_space, notepad, 1);
+        TextOut(hdc, x_box + box_width - icon_width, y_box + box_height - icon_height - small_space, notepad, 1);
+        SelectObject(hdc, font_old);
+    }
+
+    if (p->attach != NULL)
+    {
+        Attachment *a;
+        BOOL has_doc = FALSE;
+        BOOL has_pic = FALSE;
+        int icon_width = char_height;
+        int icon_height = char_height * 1.3;  // bigger, to match the notepad
+        HFONT hFont = CreateFont(icon_height, 0, 0, 0, 0, 0, 0, 0, SYMBOL_CHARSET, 0, 0, 0, 0, "Webdings");
+        HFONT font_old = SelectObject(hdc, hFont);
+        char document[2] = { 0x9E, 0 };  // mixed document (e.g. PDF)
+        char picture[2] = { 0x9F, 0 };   // picture webding
+
+        for (a = p->attach; a != NULL; a = a->next)
+        {
+            if (a->is_image)
+                has_pic = TRUE;
+            else
+                has_doc = TRUE;
+        }
+        if (has_pic)
+            TextOut(hdc, x_box + box_width - 2 * icon_width, y_box + box_height - icon_height - small_space, picture, 1);
+        if (has_doc)
+            TextOut(hdc, x_box + box_width - 3 * icon_width, y_box + box_height - icon_height - small_space, document, 1);
         SelectObject(hdc, font_old);
     }
 
@@ -1198,7 +1224,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                         fprintf_s(html, "%s<br>", escq(buf, a->title));
                         slosh = strrchr(a->filename, '\\');
-                        fprintf_s(html, "<img src=\"%s\"/><br>", slosh + 1);
+                        if (a->is_image)
+                            fprintf_s(html, "<img src=\"%s\"/><br>", slosh + 1);
+                        else
+                            fprintf_s(html, "<a href=\"%s\">%s</a><br>", slosh + 1, slosh + 1);
 
                         // Copy attachment file to web dir
                         strcpy_s(dest_file, MAXSTR, web_dir);
@@ -1276,7 +1305,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             slosh = strrchr(buf, '\\');
             *(slosh + 1) = '\0';
             strcat_s(buf, MAXSTR - (slosh - buf), "index.html");
-            fopen_s(html, buf, "wt");
+            fopen_s(&html, buf, "wt");
             fprintf_s(html, "<HTML>\n");
             fprintf_s(html, "<body>\n");
             for (i = 0; i < n_views; i++)
