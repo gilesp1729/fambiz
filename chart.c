@@ -14,6 +14,8 @@
 #define ROUND_DIAM      10
 #define CHAR_HEIGHT     8
 #define ZOOM_MULTIPLE   1.2
+#define L_MARGIN        30
+#define T_MARGIN        20
 
 // Offset array based at the centre - descendants are positive, ancestors negative.
 int offsets[MAX_GEN];
@@ -311,8 +313,8 @@ wrap_text_out(HDC hdc, int x_text, int *y_text, char *name, int namelen)
 void
 draw_box(HDC hdc, Person *p)
 {
-    int x_box = p->offset * (box_width + min_spacing) + (min_spacing / 2) - h_scrollpos;
-    int y_box = (p->generation - anc_generations) * (box_height + min_spacing) + (min_spacing / 2) - v_scrollpos;
+    int x_box = L_MARGIN + p->offset * (box_width + min_spacing) + (min_spacing / 2) - h_scrollpos;
+    int y_box = T_MARGIN + (p->generation - anc_generations) * (box_height + min_spacing) + (min_spacing / 2) - v_scrollpos;
     int x_text, y_text;
     Event *ev;
     HPEN hPenOld = NULL;
@@ -1402,7 +1404,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
                         hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
                         hFontOld = SelectObject(hdc, hFontLarge);
-                        TextOut(hdc, small_space - h_scrollpos, small_space - v_scrollpos, prefs->title, strlen(prefs->title));
+                        TextOut
+                        (
+                            hdc, 
+                            (L_MARGIN * printx) / screenx - h_scrollpos, 
+                            (T_MARGIN * printy) / screeny - v_scrollpos, 
+                            prefs->title, 
+                            strlen(prefs->title)
+                        );
                         SelectObject(hdc, hFont);
                         highlight_person = NULL;  // don't print the gray boxes
                         highlight_family = NULL;
@@ -2068,7 +2077,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             // Draw the content.
             SelectObject(hdc, hFontLarge);
-            TextOut(hdc, small_space - h_scrollpos, small_space - v_scrollpos, prefs->title, strlen(prefs->title));
+            TextOut(hdc, L_MARGIN - h_scrollpos, T_MARGIN - v_scrollpos, prefs->title, strlen(prefs->title));
             SelectObject(hdc, hFont);
             if (prefs->view_desc)
                 draw_desc_boxes(hdc, prefs->root_person);
