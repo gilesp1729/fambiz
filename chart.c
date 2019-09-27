@@ -32,6 +32,8 @@ Family *highlight_family = NULL;
 // Zooming and fractions of the fixed widths/heights
 int box_width;
 int box_height;
+int l_margin;
+int t_margin;
 int min_spacing;
 int round_diam;
 int small_space;
@@ -313,8 +315,8 @@ wrap_text_out(HDC hdc, int x_text, int *y_text, char *name, int namelen)
 void
 draw_box(HDC hdc, Person *p)
 {
-    int x_box = L_MARGIN + p->offset * (box_width + min_spacing) + (min_spacing / 2) - h_scrollpos;
-    int y_box = T_MARGIN + (p->generation - anc_generations) * (box_height + min_spacing) + (min_spacing / 2) - v_scrollpos;
+    int x_box = l_margin + p->offset * (box_width + min_spacing) + (min_spacing / 2) - h_scrollpos;
+    int y_box = t_margin + (p->generation - anc_generations) * (box_height + min_spacing) + (min_spacing / 2) - v_scrollpos;
     int x_text, y_text;
     Event *ev;
     HPEN hPenOld = NULL;
@@ -878,6 +880,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int screenx, screeny, screensizex, screensizey;
     int h_scroll_save, v_scroll_save;
     int pagex, n_pagesx, pagey, n_pagesy, n_page;
+    int strip, n_strips, strip_height;
+    BOOL stripping = TRUE;
     DOCINFO di;
     int printer_percentx, printer_percenty;
     SCROLLINFO scrollinfo;
@@ -968,6 +972,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Keep highlighted person (or if there isn't one, the root person) on screen.
             box_width = (BOX_WIDTH * prefs->zoom_percent) / 100;
             box_height = (BOX_HEIGHT * prefs->zoom_percent) / 100;
+            l_margin = L_MARGIN;
+            t_margin = T_MARGIN;
             min_spacing = (MIN_SPACING * prefs->zoom_percent) / 100;
             p = highlight_person;
             if (p == NULL)
@@ -1108,6 +1114,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 box_width = (BOX_WIDTH * vp->zoom_percent) / 100;
                 box_height = (BOX_HEIGHT * vp->zoom_percent) / 100;
+                l_margin = L_MARGIN;
+                t_margin = T_MARGIN;
                 min_spacing = (MIN_SPACING * vp->zoom_percent) / 100;
                 round_diam = (ROUND_DIAM * vp->zoom_percent) / 100;
                 small_space = round_diam / 4;
@@ -1372,11 +1380,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             n_pagesx = (h_scrollwidth + pagex - 1) / pagex;
             pagey = (printsizey * screeny) / printy;
             n_pagesy = (v_scrollheight + pagey - 1) / pagey;
+            if (n_pagesy == 1 && stripping)
+            {
+                // To strip pages, n_pagesy must be 1. n_pagesx is the number of physical pages.
+                strip_height = (v_scrollheight * printy) / screeny;
+                n_strips = printsizey / strip_height;
+                n_pagesx = (n_pagesx + n_strips - 1) / n_strips;
+            }
+            else
+            {
+                strip_height = 0;   // not stripping
+                n_strips = 1;
+            }
 
             printer_percentx = (printx * prefs->zoom_percent) / screenx;
             printer_percenty = (printy * prefs->zoom_percent) / screeny;
             box_width = (BOX_WIDTH * printer_percentx) / 100;
             box_height = (BOX_HEIGHT * printer_percenty) / 100;
+            l_margin = (L_MARGIN * printx) / screenx;
+            t_margin = (T_MARGIN * printy) / screeny;
             min_spacing = (MIN_SPACING * printer_percentx) / 100;
             round_diam = (ROUND_DIAM * printer_percentx) / 100;
             small_space = round_diam / 4;
@@ -1403,28 +1425,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                             break;
                         hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
                         hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
-                        hFontOld = SelectObject(hdc, hFontLarge);
-                        TextOut
-                        (
-                            hdc, 
-                            (L_MARGIN * printx) / screenx - h_scrollpos, 
-                            (T_MARGIN * printy) / screeny - v_scrollpos, 
-                            prefs->title, 
-                            strlen(prefs->title)
-                        );
-                        SelectObject(hdc, hFont);
-                        highlight_person = NULL;  // don't print the gray boxes
-                        highlight_family = NULL;
-                        if (prefs->view_desc)
-                            draw_desc_boxes(hdc, prefs->root_person);
-                        if (prefs->view_anc)
-                            draw_anc_boxes(hdc, prefs->root_person);
 
-                        SelectObject(hdc, hFontOld);
+                        for (strip = 0; strip < n_strips; strip++)
+                        {
+                            hFontOld = SelectObject(hdc, hFontLarge);
+                            TextOut
+                                (
+                                hdc,
+                                l_margin - h_scrollpos,
+                                t_margin - v_scrollpos,
+                                prefs->title,
+                                strlen(prefs->title)
+                                );
+                            SelectObject(hdc, hFont);
+                            highlight_person = NULL;  // don't print the gray boxes
+                            highlight_family = NULL;
+                            if (prefs->view_desc)
+                                draw_desc_boxes(hdc, prefs->root_person);
+                            if (prefs->view_anc)
+                                draw_anc_boxes(hdc, prefs->root_person);
+
+                            SelectObject(hdc, hFontOld);
+                            h_scrollpos += printsizex;
+                            v_scrollpos -= strip_height;      // note: n_pagesy must be 1 if stripping
+                        }
+                        if (n_strips > 1)
+                            v_scrollpos = 0;                // for multi-pages while stripping
+
                         DeleteObject(hFont);
+                        DeleteObject(hFontLarge);
                         EndPage(hdc);
                     }
-                    h_scrollpos += printsizex;
+                    else
+                    {
+                        h_scrollpos += n_strips * printsizex;   // skip a page's worth of strips
+                    }
                 }
                 v_scrollpos += printsizey;
             }
@@ -2032,6 +2067,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             box_width = (BOX_WIDTH * prefs->zoom_percent) / 100;
             box_height = (BOX_HEIGHT * prefs->zoom_percent) / 100;
+            l_margin = L_MARGIN;
+            t_margin = T_MARGIN;
             min_spacing = (MIN_SPACING * prefs->zoom_percent) / 100;
             round_diam = (ROUND_DIAM * prefs->zoom_percent) / 100;
             small_space = round_diam / 4;
