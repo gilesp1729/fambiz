@@ -1365,6 +1365,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             strcpy_s(prefs->dm_devicename, 32, devmode->dmDeviceName);
             prefs->dm_orientation = devmode->dmOrientation;
             GlobalUnlock(prd.hDevMode);
+            modified = TRUE;
 
             // recalculate page sizes and redraw page boundaries
             printx = GetDeviceCaps(prd.hDC, LOGPIXELSX);
@@ -1403,6 +1404,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             strcpy_s(prefs->dm_devicename, 32, devmode->dmDeviceName);
             prefs->dm_orientation = devmode->dmOrientation;
             GlobalUnlock(prd.hDevMode);
+            modified = TRUE;
 
             hdc = prd.hDC;
             memset(&di, 0, sizeof(DOCINFO));

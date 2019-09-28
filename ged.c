@@ -808,6 +808,7 @@ read_ged(char *filename)
         else if (strcmp(ref, "_VIEW") == 0)     // This is a Fambiz file with view parameters, possibly multiple
         {
             ViewPrefs *vp = &view_prefs[n_views++];
+            int lev;
 
             ref = strtok_s(NULL, " \n", &ctxt);
             if (ref != NULL)
@@ -831,8 +832,46 @@ read_ged(char *filename)
             if (ref != NULL)
                 strcpy_s(vp->title, MAXSTR, ref);
 
-            if (skip_ged(ged, 0) < 0)
-                break;
+            lev = skip_ged(ged, 1); 
+            if (lev == 1)
+            {
+                while (1)
+                {
+                    fgets(buf, MAX_NOTESIZE, ged);
+                    tag = strtok_s(buf, " \n", &ctxt);
+
+                    if (strcmp(tag, "_PRINT") == 0)
+                    {
+                        ref = strtok_s(NULL, "\n", &ctxt);
+                        if (ref != NULL)
+                            strcpy_s(vp->dm_devicename, 32, ref);
+                    }
+                    else if (strcmp(tag, "_PAPER") == 0)
+                    {
+                        ref = strtok_s(NULL, " \n", &ctxt);
+                        if (ref != NULL)
+                            vp->dm_orientation = atoi(ref);
+                        ref = strtok_s(NULL, " \n", &ctxt);
+                        if (ref != NULL)
+                            vp->stripping = atoi(ref);
+                        ref = strtok_s(NULL, " \n", &ctxt);
+                        if (ref != NULL)
+                            vp->strip_height = atoi(ref);
+                        ref = strtok_s(NULL, "\n", &ctxt);
+                        if (ref != NULL)
+                            strcpy_s(vp->dm_formname, 32, ref);
+                    }
+                    lev = skip_ged(ged, 1);
+                    if (lev < 1)
+                        break;
+                }
+#if 0
+                if (lev == 1)            // don't skip again at level 1
+                    continue;
+                else if (lev < 1)
+                    break;
+#endif
+            }
         }
         else if (strcmp(ref, "TRLR") == 0)      // Trailer has been read, we're finished.
         {
