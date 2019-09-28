@@ -133,8 +133,6 @@ typedef struct ViewPrefs
     int         zoom_percent;       // The zoom percentage of the view
     char        dm_devicename[32];  // Printer name
     char        dm_formname[32];    // Printer form name (A4, A0, etc)
-    int         dm_paperwidth;      // Paper width in mm/10
-    int         dm_paperlength;     // Paper length (height) in mm/10
     int         dm_orientation;     // Paper orientation (DMORIENT_PORTRAIT/LANDSCAPE)
     BOOL        stripping;          // TRUE if stripping onto the page
     int         strip_height;       // Strip height in mm

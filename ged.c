@@ -893,6 +893,15 @@ write_ged(char *filename)
                   vp->view_desc, vp->view_anc, 
                   vp->desc_limit, prefs->anc_limit, 
                   vp->zoom_percent, vp->title);
+        if (vp->dm_devicename[0] != '\0')
+        {
+            fprintf_s(ged, "1 _PRINT %s\n", vp->dm_devicename);
+            fprintf_s(ged, "1 _PAPER %d %d %d %s\n",
+                      vp->dm_orientation,
+                      vp->stripping,
+                      vp->strip_height,
+                      vp->dm_formname);
+        }
     }
 
     for (i = 0; i <= n_person; i++)

@@ -55,10 +55,8 @@ ViewPrefs default_prefs =
     200,        // The zoom percentage of the view
     "\0",       // Printer name
     "A4",       // Printer form name (A4, A0, etc)
-    2100,       // Paper width in mm/10
-    2970,       // Paper length (height) in mm/10
     DMORIENT_PORTRAIT, // Paper orientation (DMORIENT_PORTRAIT/LANDSCAPE)
-    FALSE,      // TRUE if stripping onto the page
+    TRUE,       // TRUE if stripping onto the page (and the sizes allow it)
     297         // Strip height in mm
 };
 
@@ -1346,18 +1344,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             goto generate_chart;
 
         case ID_FILE_PAGESETUP:
-            if (prd.hDevMode == NULL && prefs != NULL)
+            if (prefs != NULL)
             {
                 // setup prd DEVMODE with current view print settings, if there is one
-                prd.hDevMode = GlobalAlloc(GHND, sizeof(DEVMODE));
                 devmode = GlobalLock(prd.hDevMode);
                 devmode->dmSpecVersion = DM_SPECVERSION;
                 strcpy_s(devmode->dmFormName, 32, prefs->dm_formname);
                 strcpy_s(devmode->dmDeviceName, 32, prefs->dm_devicename);
-                devmode->dmPaperWidth = prefs->dm_paperwidth;
-                devmode->dmPaperLength = prefs->dm_paperlength;
                 devmode->dmOrientation = prefs->dm_orientation;
-                devmode->dmFields = DM_FORMNAME | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_ORIENTATION;
+                devmode->dmFields = DM_FORMNAME | DM_ORIENTATION;
                 GlobalUnlock(prd.hDevMode);
             }
             prd.Flags = PD_PRINTSETUP | PD_RETURNDC;
@@ -1368,8 +1363,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             devmode = GlobalLock(prd.hDevMode);
             strcpy_s(prefs->dm_formname, 32, devmode->dmFormName);
             strcpy_s(prefs->dm_devicename, 32, devmode->dmDeviceName);
-            prefs->dm_paperwidth = devmode->dmPaperWidth;
-            prefs->dm_paperlength = devmode->dmPaperLength;
             prefs->dm_orientation = devmode->dmOrientation;
             GlobalUnlock(prd.hDevMode);
 
@@ -1384,18 +1377,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             goto update_titlebar;
 
         case ID_FILE_PRINT:
-            if (prd.hDevMode == NULL && prefs != NULL)
+            if (prefs != NULL)
             {
                 // setup prd DEVMODE with current view print settings, if there is one
-                prd.hDevMode = GlobalAlloc(GHND, sizeof(DEVMODE));
                 devmode = GlobalLock(prd.hDevMode);
                 devmode->dmSpecVersion = DM_SPECVERSION;
                 strcpy_s(devmode->dmFormName, 32, prefs->dm_formname);
                 strcpy_s(devmode->dmDeviceName, 32, prefs->dm_devicename);
-                devmode->dmPaperWidth = prefs->dm_paperwidth;
-                devmode->dmPaperLength = prefs->dm_paperlength;
                 devmode->dmOrientation = prefs->dm_orientation;
-                devmode->dmFields = DM_FORMNAME | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_ORIENTATION;
+                devmode->dmFields = DM_FORMNAME | DM_ORIENTATION;
                 GlobalUnlock(prd.hDevMode);
             }
             prd.Flags = PD_RETURNDC;
@@ -1411,8 +1401,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             devmode = GlobalLock(prd.hDevMode);
             strcpy_s(prefs->dm_formname, 32, devmode->dmFormName);
             strcpy_s(prefs->dm_devicename, 32, devmode->dmDeviceName);
-            prefs->dm_paperwidth = devmode->dmPaperWidth;
-            prefs->dm_paperlength = devmode->dmPaperLength;
             prefs->dm_orientation = devmode->dmOrientation;
             GlobalUnlock(prd.hDevMode);
 
