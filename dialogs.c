@@ -530,6 +530,12 @@ void load_prefs(HWND hDlg, ViewPrefs *prefs)
     SetDlgItemInt(hDlg, IDC_PREFS_ZOOM, prefs->zoom_percent, FALSE);
     CheckDlgButton(hDlg, IDC_PREFS_VIEW_DESC, prefs->view_desc ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(hDlg, IDC_PREFS_VIEW_ANC, prefs->view_anc ? BST_CHECKED : BST_UNCHECKED);
+
+    SetDlgItemText(hDlg, IDC_STATIC_DEVICENAME, prefs->dm_devicename);
+    SetDlgItemText(hDlg, IDC_STATIC_FORMNAME, prefs->dm_formname);
+    SetDlgItemText(hDlg, IDC_STATIC_ORIENTATION, prefs->dm_orientation == DMORIENT_PORTRAIT ? "Portrait" : "Landscape");
+    CheckDlgButton(hDlg, IDC_PREFS_STRIPPING, prefs->stripping ? BST_CHECKED : BST_UNCHECKED);
+    SetDlgItemInt(hDlg, IDC_PREFS_STRIPHEIGHT, prefs->strip_height, FALSE);
 }
 
 void save_prefs(HWND hDlg, ViewPrefs *prefs)
@@ -547,6 +553,8 @@ void save_prefs(HWND hDlg, ViewPrefs *prefs)
     prefs->zoom_percent = GetDlgItemInt(hDlg, IDC_PREFS_ZOOM, NULL, FALSE);
     prefs->view_desc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_DESC);
     prefs->view_anc = IsDlgButtonChecked(hDlg, IDC_PREFS_VIEW_ANC);
+    prefs->stripping = IsDlgButtonChecked(hDlg, IDC_PREFS_STRIPPING);
+    prefs->strip_height = GetDlgItemInt(hDlg, IDC_PREFS_STRIPHEIGHT, NULL, FALSE);
 }
 
 LRESULT CALLBACK prefs_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
