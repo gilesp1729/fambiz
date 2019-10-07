@@ -884,7 +884,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int printx, printy, printsizex, printsizey;
     static int screenx, screeny, screensizex, screensizey;
     int h_scroll_save, v_scroll_save;
-    int pagex, n_pagesx, pagey, n_pagesy, n_page, copy;
+    int pagex, n_pagesx, pagey, n_pagesy, n_page;
+    int copy, max_copies, num_copies, dummy;
     int n_strips, strip_height;
     BOOL stripping = TRUE;
     DOCINFO di;
@@ -897,6 +898,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int x_down, y_down;
     char buf[MAXSTR], buf2[MAXSTR], notebuf[MAX_NOTESIZE];
     DEVMODE *devmode;
+    DEVNAMES *devnames;
     Note **note_ptr;
     Person *p;
     int line_size;
@@ -1382,6 +1384,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GlobalUnlock(prd.hDevMode);
             modified = TRUE;
 
+            // Work out how many copies this thing can print
+            devnames = GlobalLock(prd.hDevNames);
+            max_copies = DeviceCapabilities
+                (
+                (char *)devnames + devnames->wDeviceOffset, 
+                (char *)devnames + devnames->wOutputOffset, 
+                DC_COPIES, 
+                &dummy, 
+                NULL
+                );
+            GlobalUnlock(prd.hDevNames);
+
             // recalculate page sizes and redraw page boundaries
             printx = GetDeviceCaps(prd.hDC, LOGPIXELSX);
             printy = GetDeviceCaps(prd.hDC, LOGPIXELSY);
@@ -1424,6 +1438,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GlobalUnlock(prd.hDevMode);
             modified = TRUE;
 
+            // Work out how many copies this thing can print
+            devnames = GlobalLock(prd.hDevNames);
+            max_copies = DeviceCapabilities
+                (
+                (char *)devnames + devnames->wDeviceOffset,
+                (char *)devnames + devnames->wOutputOffset,
+                DC_COPIES,
+                &dummy,
+                NULL
+                );
+            GlobalUnlock(prd.hDevNames);
+
+            // Start a doc
             hdc = prd.hDC;
             memset(&di, 0, sizeof(DOCINFO));
             di.cbSize = sizeof(DOCINFO);
@@ -1457,8 +1484,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
 
             // prd.nCopies and (prd.Flags & PD_COLLATE) contain user's copies and collate settings
-            // (don't look in the DEVMODE for these)
+            // (don't look in the DEVMODE for these). If driver does copies, make sure we don't.
             // We don't do collation here, regardless of what the luser says.
+            num_copies = prd.nCopies;
+            if (max_copies > 1)
+                num_copies = 1;
 
             // Calculate scales for the printer
             printer_percentx = (printx * prefs->zoom_percent) / screenx;
@@ -1492,7 +1522,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         if (n_page >= prd.nFromPage && n_page <= prd.nToPage)
                         {
                             // Copies come out without collation. 1,1,1,2,2,2,3,3,3...
-                            for (copy = 0; copy < prd.nCopies; copy++)
+                            for (copy = 0; copy < num_copies; copy++)
                             {
                                 if (StartPage(hdc) <= 0)
                                     break;
@@ -1536,7 +1566,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     if (n_page >= prd.nFromPage && n_page <= prd.nToPage)
                     {
                         // Copies come out stripped, without collation. 1,1,1,2,2,2,3,3,3...
-                        for (copy = 0; copy < prd.nCopies; copy++)
+                        for (copy = 0; copy < num_copies; copy++)
                         {
                             if (v_scrollpos == 0)
                             {
