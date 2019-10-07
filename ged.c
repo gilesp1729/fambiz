@@ -930,7 +930,7 @@ write_ged(char *filename)
         fprintf_s(ged, "0 _VIEW %d %d %d %d %d %d %s\n", 
                   vp->root_person->id, 
                   vp->view_desc, vp->view_anc, 
-                  vp->desc_limit, prefs->anc_limit, 
+                  vp->desc_limit, vp->anc_limit, 
                   vp->zoom_percent, vp->title);
         if (vp->dm_devicename[0] != '\0')
         {

@@ -885,7 +885,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int screenx, screeny, screensizex, screensizey;
     int h_scroll_save, v_scroll_save;
     int pagex, n_pagesx, pagey, n_pagesy, n_page;
-    int strip, n_strips, strip_height;
+    int n_strips, strip_height;
     BOOL stripping = TRUE;
     DOCINFO di;
     int printer_percentx, printer_percenty;
@@ -993,14 +993,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             n_pagesx = (h_scrollwidth + pagex - 1) / pagex;
             pagey = (printsizey * screeny) / printy;
             n_pagesy = (v_scrollheight + pagey - 1) / pagey;
-            devmode = GlobalLock(prd.hDevMode);
 
-            sprintf_s(buf, MAXSTR, "%s (%d by %d, %d by %d %s pages on %s)", 
-                      curr_filename, 
-                      max_offset, desc_generations - anc_generations,
-                      n_pagesx, n_pagesy, devmode->dmFormName, devmode->dmDeviceName);
+            if (prefs->dm_devicename[0] != '\0')
+            {
+                // Use device and paper names from the preferences for this view
+                sprintf_s(buf, MAXSTR, "%s (%d by %d, %d by %d %s pages on %s)",
+                          curr_filename,
+                          max_offset, desc_generations - anc_generations,
+                          n_pagesx, n_pagesy, prefs->dm_formname, prefs->dm_devicename);
+            }
+            else
+            {
+                // The view doesn't have a printer device name; use the default from the DEVMODE
+                devmode = GlobalLock(prd.hDevMode);
+                sprintf_s(buf, MAXSTR, "%s (%d by %d, %d by %d %s pages on %s)",
+                          curr_filename,
+                          max_offset, desc_generations - anc_generations,
+                          n_pagesx, n_pagesy, devmode->dmFormName, devmode->dmDeviceName);
+                GlobalUnlock(prd.hDevMode);
+            }
             SetWindowText(hWnd, buf);
-            GlobalUnlock(prd.hDevMode);
             break;
 
         case ID_FILE_SAVEAS:
@@ -1349,11 +1361,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 // setup prd DEVMODE with current view print settings, if there is one
                 devmode = GlobalLock(prd.hDevMode);
                 devmode->dmSpecVersion = DM_SPECVERSION;
+                devmode->dmSize = sizeof(DEVMODE);
                 strcpy_s(devmode->dmFormName, 32, prefs->dm_formname);
                 strcpy_s(devmode->dmDeviceName, 32, prefs->dm_devicename);
                 devmode->dmOrientation = prefs->dm_orientation;
                 devmode->dmFields = DM_FORMNAME | DM_ORIENTATION;
                 GlobalUnlock(prd.hDevMode);
+                GlobalFree(prd.hDevNames);      // force dmDeviceName to be used for printer
+                prd.hDevNames = NULL;
             }
             prd.Flags = PD_PRINTSETUP | PD_RETURNDC;
             if (!PrintDlg(&prd))
@@ -1383,10 +1398,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 // setup prd DEVMODE with current view print settings, if there is one
                 devmode = GlobalLock(prd.hDevMode);
                 devmode->dmSpecVersion = DM_SPECVERSION;
+                devmode->dmSize = sizeof(DEVMODE);
                 strcpy_s(devmode->dmFormName, 32, prefs->dm_formname);
                 strcpy_s(devmode->dmDeviceName, 32, prefs->dm_devicename);
                 devmode->dmOrientation = prefs->dm_orientation;
                 devmode->dmFields = DM_FORMNAME | DM_ORIENTATION;
+                GlobalFree(prd.hDevNames);      // force dmDeviceName to be used for printer
+                prd.hDevNames = NULL;
                 GlobalUnlock(prd.hDevMode);
             }
             prd.Flags = PD_RETURNDC;
@@ -1428,10 +1446,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             n_pagesy = (v_scrollheight + pagey - 1) / pagey;
             if (n_pagesy == 1 && prefs->stripping)
             {
-                // To strip pages, n_pagesy must be 1. n_pagesx is the number of physical pages.
+                // To strip pages, n_pagesy must be 1.
                 strip_height = (prefs->strip_height * printy) / 25.4f;
                 n_strips = printsizey / strip_height;
-                n_pagesx = (n_pagesx + n_strips - 1) / n_strips;
             }
             else
             {
@@ -1439,6 +1456,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 n_strips = 1;
             }
 
+            // prd.nCopies and (prd.Flags & PD_COLLATE) contain user's copies and collate settings
+            // (don't look in the DEVMODE for these)
+
+            // Calculate scales for the printer
             printer_percentx = (printx * prefs->zoom_percent) / screenx;
             printer_percenty = (printy * prefs->zoom_percent) / screeny;
             box_width = (BOX_WIDTH * printer_percentx) / 100;
@@ -1459,31 +1480,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             h_scrollpos = 0;
             v_scrollpos = 0;
 
-            // Loop over pages
-            for (i = 0, n_page = 1; i < n_pagesy; i++)
+            if (n_strips == 1)
             {
-                h_scrollpos = 0;
-                for (j = 0; j < n_pagesx; j++, n_page++)
+                // Not stripping. Loop over pages, X within Y
+                for (i = 0, n_page = 1; i < n_pagesy; i++)
                 {
-                    if (n_page >= prd.nFromPage && n_page <= prd.nToPage)
+                    h_scrollpos = 0;
+                    for (j = 0; j < n_pagesx; j++, n_page++)
                     {
-                        if (StartPage(hdc) <= 0)
-                            break;
-                        hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
-                        hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
-
-                        if (n_strips > 1)
+                        if (n_page >= prd.nFromPage && n_page <= prd.nToPage)
                         {
-                            // output cut line in grey at top of page
-                            SetDCPenColor(hdc, RGB(160, 160, 160));
-                            hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
-                            MoveToEx(hdc, 0, 1, NULL);
-                            LineTo(hdc, printsizex, 1);
-                            SelectObject(hdc, hPenOld);
-                        }
+                            if (StartPage(hdc) <= 0)
+                                break;
+                            hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+                            hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
 
-                        for (strip = 0; strip < n_strips; strip++)
-                        {
                             hFontOld = SelectObject(hdc, hFontLarge);
                             TextOut
                                 (
@@ -1503,30 +1514,91 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                             SelectObject(hdc, hFontOld);
                             h_scrollpos += printsizex;
-                            v_scrollpos -= strip_height;      // note: n_pagesy must be 1 if stripping
-                            if (n_strips > 1)
-                            {
-                                // output cut line in grey
-                                SetDCPenColor(hdc, RGB(160, 160, 160));
-                                hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
-                                MoveToEx(hdc, 0, -v_scrollpos, NULL);
-                                LineTo(hdc, printsizex, -v_scrollpos);
-                                SelectObject(hdc, hPenOld);
-                            }
+                            DeleteObject(hFont);
+                            DeleteObject(hFontLarge);
+                            EndPage(hdc);
                         }
-                        if (n_strips > 1)
-                            v_scrollpos = 0;                // for multi-pages while stripping
+                    }
+                    v_scrollpos += printsizey;
+                }
+            }
+            else
+            {
+                // We are stripping. n_pagesy is guaranteed to be 1, so there is no loop for it.
+                // Collate strips and copies of strips, breaking the page when it is full.
+                for (j = 0, n_page = 1; j < n_pagesx; j++, n_page++)
+                {
+                    if (n_page >= prd.nFromPage && n_page <= prd.nToPage)
+                    {
+                        if (v_scrollpos == 0)
+                        {
+                            // Start a new page
+                            if (StartPage(hdc) <= 0)
+                                break;
+                            hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+                            hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
 
-                        DeleteObject(hFont);
-                        DeleteObject(hFontLarge);
-                        EndPage(hdc);
+                            // output cut line in grey at top of page
+                            SetDCPenColor(hdc, RGB(160, 160, 160));
+                            hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
+                            MoveToEx(hdc, 0, 1, NULL);
+                            LineTo(hdc, printsizex, 1);
+                            SelectObject(hdc, hPenOld);
+                        }
+
+                        // Draw contents
+                        hFontOld = SelectObject(hdc, hFontLarge);
+                        TextOut
+                            (
+                            hdc,
+                            l_margin - h_scrollpos,
+                            t_margin - v_scrollpos,
+                            prefs->title,
+                            strlen(prefs->title)
+                            );
+                        SelectObject(hdc, hFont);
+                        highlight_person = NULL;  // don't print the gray boxes
+                        highlight_family = NULL;
+                        if (prefs->view_desc)
+                            draw_desc_boxes(hdc, prefs->root_person);
+                        if (prefs->view_anc)
+                            draw_anc_boxes(hdc, prefs->root_person);
+
+                        SelectObject(hdc, hFontOld);
+                        // Advance to next strip
+                        h_scrollpos += printsizex;
+                        v_scrollpos -= strip_height;
+
+                        // output cut line in grey
+                        SetDCPenColor(hdc, RGB(160, 160, 160));
+                        hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
+                        MoveToEx(hdc, 0, -v_scrollpos, NULL);
+                        LineTo(hdc, printsizex, -v_scrollpos);
+                        SelectObject(hdc, hPenOld);
+
+                        if (v_scrollpos - strip_height < -printsizey)
+                        {
+                            // We can't fit any more strips on the page.
+                            DeleteObject(hFont);
+                            DeleteObject(hFontLarge);
+                            EndPage(hdc);
+                            v_scrollpos = 0;
+                        }
                     }
                     else
                     {
-                        h_scrollpos += n_strips * printsizex;   // skip a page's worth of strips
+                        // Advance to next strip
+                        h_scrollpos += printsizex;
                     }
                 }
-                v_scrollpos += printsizey;
+            }
+
+            if (v_scrollpos != 0)
+            {
+                // Finish any page that we haven't finished.
+                DeleteObject(hFont);
+                DeleteObject(hFontLarge);
+                EndPage(hdc);
             }
             EndDoc(hdc);
             DeleteDC(hdc);
