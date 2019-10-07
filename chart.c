@@ -884,7 +884,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int printx, printy, printsizex, printsizey;
     static int screenx, screeny, screensizex, screensizey;
     int h_scroll_save, v_scroll_save;
-    int pagex, n_pagesx, pagey, n_pagesy, n_page;
+    int pagex, n_pagesx, pagey, n_pagesy, n_page, copy;
     int n_strips, strip_height;
     BOOL stripping = TRUE;
     DOCINFO di;
@@ -1458,6 +1458,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             // prd.nCopies and (prd.Flags & PD_COLLATE) contain user's copies and collate settings
             // (don't look in the DEVMODE for these)
+            // We don't do collation here, regardless of what the luser says.
 
             // Calculate scales for the printer
             printer_percentx = (printx * prefs->zoom_percent) / screenx;
@@ -1490,11 +1491,70 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     {
                         if (n_page >= prd.nFromPage && n_page <= prd.nToPage)
                         {
-                            if (StartPage(hdc) <= 0)
-                                break;
-                            hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
-                            hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+                            // Copies come out without collation. 1,1,1,2,2,2,3,3,3...
+                            for (copy = 0; copy < prd.nCopies; copy++)
+                            {
+                                if (StartPage(hdc) <= 0)
+                                    break;
+                                hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+                                hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
 
+                                hFontOld = SelectObject(hdc, hFontLarge);
+                                TextOut
+                                    (
+                                    hdc,
+                                    l_margin - h_scrollpos,
+                                    t_margin - v_scrollpos,
+                                    prefs->title,
+                                    strlen(prefs->title)
+                                    );
+                                SelectObject(hdc, hFont);
+                                highlight_person = NULL;  // don't print the gray boxes
+                                highlight_family = NULL;
+                                if (prefs->view_desc)
+                                    draw_desc_boxes(hdc, prefs->root_person);
+                                if (prefs->view_anc)
+                                    draw_anc_boxes(hdc, prefs->root_person);
+
+                                SelectObject(hdc, hFontOld);
+                                DeleteObject(hFont);
+                                DeleteObject(hFontLarge);
+                                EndPage(hdc);
+                            }
+                        }
+                        h_scrollpos += printsizex;
+                    }
+                    v_scrollpos += printsizey;
+                }
+            }
+            else
+            {
+                // We are stripping. n_pagesy is guaranteed to be 1, so there is no loop for it.
+                // Fill page with strips and copies of strips, breaking the page when it is full.
+                for (j = 0, n_page = 1; j < n_pagesx; j++, n_page++)
+                {
+                    if (n_page >= prd.nFromPage && n_page <= prd.nToPage)
+                    {
+                        // Copies come out stripped, without collation. 1,1,1,2,2,2,3,3,3...
+                        for (copy = 0; copy < prd.nCopies; copy++)
+                        {
+                            if (v_scrollpos == 0)
+                            {
+                                // Start a new page
+                                if (StartPage(hdc) <= 0)
+                                    break;
+                                hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+                                hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+
+                                // output cut line in grey at top of page
+                                SetDCPenColor(hdc, RGB(160, 160, 160));
+                                hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
+                                MoveToEx(hdc, 0, 1, NULL);
+                                LineTo(hdc, printsizex, 1);
+                                SelectObject(hdc, hPenOld);
+                            }
+
+                            // Draw contents
                             hFontOld = SelectObject(hdc, hFontLarge);
                             TextOut
                                 (
@@ -1513,77 +1573,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 draw_anc_boxes(hdc, prefs->root_person);
 
                             SelectObject(hdc, hFontOld);
-                            h_scrollpos += printsizex;
-                            DeleteObject(hFont);
-                            DeleteObject(hFontLarge);
-                            EndPage(hdc);
-                        }
-                    }
-                    v_scrollpos += printsizey;
-                }
-            }
-            else
-            {
-                // We are stripping. n_pagesy is guaranteed to be 1, so there is no loop for it.
-                // Collate strips and copies of strips, breaking the page when it is full.
-                for (j = 0, n_page = 1; j < n_pagesx; j++, n_page++)
-                {
-                    if (n_page >= prd.nFromPage && n_page <= prd.nToPage)
-                    {
-                        if (v_scrollpos == 0)
-                        {
-                            // Start a new page
-                            if (StartPage(hdc) <= 0)
-                                break;
-                            hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
-                            hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
+                            // Advance to next strip
+                            v_scrollpos -= strip_height;
 
-                            // output cut line in grey at top of page
+                            // output cut line in grey
                             SetDCPenColor(hdc, RGB(160, 160, 160));
                             hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
-                            MoveToEx(hdc, 0, 1, NULL);
-                            LineTo(hdc, printsizex, 1);
+                            MoveToEx(hdc, 0, -v_scrollpos, NULL);
+                            LineTo(hdc, printsizex, -v_scrollpos);
                             SelectObject(hdc, hPenOld);
+
+                            if (v_scrollpos - strip_height < -printsizey)
+                            {
+                                // We can't fit any more strips on the page.
+                                DeleteObject(hFont);
+                                DeleteObject(hFontLarge);
+                                EndPage(hdc);
+                                v_scrollpos = 0;
+                            }
                         }
-
-                        // Draw contents
-                        hFontOld = SelectObject(hdc, hFontLarge);
-                        TextOut
-                            (
-                            hdc,
-                            l_margin - h_scrollpos,
-                            t_margin - v_scrollpos,
-                            prefs->title,
-                            strlen(prefs->title)
-                            );
-                        SelectObject(hdc, hFont);
-                        highlight_person = NULL;  // don't print the gray boxes
-                        highlight_family = NULL;
-                        if (prefs->view_desc)
-                            draw_desc_boxes(hdc, prefs->root_person);
-                        if (prefs->view_anc)
-                            draw_anc_boxes(hdc, prefs->root_person);
-
-                        SelectObject(hdc, hFontOld);
-                        // Advance to next strip
                         h_scrollpos += printsizex;
-                        v_scrollpos -= strip_height;
-
-                        // output cut line in grey
-                        SetDCPenColor(hdc, RGB(160, 160, 160));
-                        hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
-                        MoveToEx(hdc, 0, -v_scrollpos, NULL);
-                        LineTo(hdc, printsizex, -v_scrollpos);
-                        SelectObject(hdc, hPenOld);
-
-                        if (v_scrollpos - strip_height < -printsizey)
-                        {
-                            // We can't fit any more strips on the page.
-                            DeleteObject(hFont);
-                            DeleteObject(hFontLarge);
-                            EndPage(hdc);
-                            v_scrollpos = 0;
-                        }
                     }
                     else
                     {
