@@ -1575,13 +1575,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                     break;
                                 hFont = CreateFont(char_height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
                                 hFontLarge = CreateFont(2 * char_height, 0, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Arial");
-
-                                // output cut line in grey at top of page
-                                SetDCPenColor(hdc, RGB(160, 160, 160));
-                                hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
-                                MoveToEx(hdc, 0, 1, NULL);
-                                LineTo(hdc, printsizex, 1);
-                                SelectObject(hdc, hPenOld);
                             }
 
                             // Draw contents
@@ -1607,7 +1600,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                             v_scrollpos -= strip_height;
 
                             // output cut line in grey
-                            SetDCPenColor(hdc, RGB(160, 160, 160));
+                            SetDCPenColor(hdc, RGB(128, 128, 128));
                             hPenOld = SelectObject(hdc, GetStockObject(DC_PEN));
                             MoveToEx(hdc, 0, -v_scrollpos, NULL);
                             LineTo(hdc, printsizex, -v_scrollpos);
@@ -1622,12 +1615,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 v_scrollpos = 0;
                             }
                         }
-                        h_scrollpos += printsizex;
+                        // Include a small overlap, since we don't know the margin of the final printer
+                        // when printing to PDF
+                        h_scrollpos += printsizex - l_margin;
                     }
                     else
                     {
                         // Advance to next strip
-                        h_scrollpos += printsizex;
+                        h_scrollpos += printsizex - l_margin;
                     }
                 }
             }
