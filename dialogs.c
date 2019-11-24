@@ -220,8 +220,8 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     Event *ev;
     Note **note_ptr;
     Attachment **att_ptr;
-    char buf[MAXSTR], date[MAXSTR], place[MAXSTR];
-    int nd, np, checked, cmd;
+    char buf[MAXSTR], date[MAXSTR], place[MAXSTR], mtype[MAXSTR];
+    int nd, np, nt, checked, cmd;
 
     switch (message)
     {
@@ -235,12 +235,16 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         SetDlgItemText(hDlg, IDC_STATIC_WIFE, buf);
         EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_DATE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_PLACE), FALSE);
+        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_TYPE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_DATE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_PLACE), FALSE);
+        EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_TYPE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_DATE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_PLACE), FALSE);
+        EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_TYPE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_DATE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_PLACE), FALSE);
+        EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_TYPE), FALSE);
 
         for (ev = f->event; ev != NULL; ev = ev->next)
         {
@@ -249,20 +253,26 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 CheckDlgButton(hDlg, IDC_CHECK_MARR, BST_CHECKED);
                 EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_DATE), TRUE);
                 EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_PLACE), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_TYPE), TRUE);
                 EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_DATE), TRUE);
                 EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_PLACE), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_TYPE), TRUE);
                 SetDlgItemText(hDlg, IDC_EDIT_MARR_DATE, ev->date);
                 SetDlgItemText(hDlg, IDC_EDIT_MARR_PLACE, ev->place);
+                SetDlgItemText(hDlg, IDC_EDIT_MARR_TYPE, ev->mtype);
             }
             else if (ev->type == EV_DIVORCE)
             {
                 CheckDlgButton(hDlg, IDC_CHECK_DIV, BST_CHECKED);
                 EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_DATE), TRUE);
                 EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_PLACE), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_TYPE), TRUE);
                 EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_DATE), TRUE);
                 EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_PLACE), TRUE);
+                EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_TYPE), TRUE);
                 SetDlgItemText(hDlg, IDC_EDIT_DIV_DATE, ev->date);
                 SetDlgItemText(hDlg, IDC_EDIT_DIV_PLACE, ev->place);
+                SetDlgItemText(hDlg, IDC_EDIT_DIV_TYPE, ev->mtype);
             }
         }
         return 1;
@@ -274,12 +284,14 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         case ID_FAMILY_ADDCHILD:
             nd = GetDlgItemText(hDlg, IDC_EDIT_MARR_DATE, date, MAXSTR);
             np = GetDlgItemText(hDlg, IDC_EDIT_MARR_PLACE, place, MAXSTR);
-            if (nd != 0 || np != 0 || IsDlgButtonChecked(hDlg, IDC_CHECK_MARR))
+            nt = GetDlgItemText(hDlg, IDC_EDIT_MARR_TYPE, mtype, MAXSTR);
+            if (nd != 0 || np != 0 || nt != 0 || IsDlgButtonChecked(hDlg, IDC_CHECK_MARR))
             {
                 // If there is data for a marriage, or the box is ticked, add/edit an event record. Otherwise, remove it.
                 ev = find_event(EV_MARRIAGE, &f->event);
                 strcpy_s(ev->date, MAXSTR, date);
                 strcpy_s(ev->place, MAXSTR, place);
+                strcpy_s(ev->mtype, MAXSTR, mtype);
             }
             else
             {
@@ -288,11 +300,13 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 
             nd = GetDlgItemText(hDlg, IDC_EDIT_DIV_DATE, date, MAXSTR);
             np = GetDlgItemText(hDlg, IDC_EDIT_DIV_PLACE, place, MAXSTR);
-            if (nd != 0 && np != 0 || IsDlgButtonChecked(hDlg, IDC_CHECK_DIV))
+            nt = GetDlgItemText(hDlg, IDC_EDIT_DIV_TYPE, mtype, MAXSTR);
+            if (nd != 0 && np != 0 || nt != 0 || IsDlgButtonChecked(hDlg, IDC_CHECK_DIV))
             {
                 ev = find_event(EV_DIVORCE, &f->event);
                 strcpy_s(ev->date, MAXSTR, date);
                 strcpy_s(ev->place, MAXSTR, place);
+                strcpy_s(ev->mtype, MAXSTR, mtype);
             }
             else
             {
@@ -348,16 +362,20 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             checked = IsDlgButtonChecked(hDlg, IDC_CHECK_MARR);
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_DATE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_PLACE), checked);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_MARR_TYPE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_DATE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_PLACE), checked);
+            EnableWindow(GetDlgItem(hDlg, IDC_STATIC_MARR_TYPE), checked);
             break;
 
         case IDC_CHECK_DIV:
             checked = IsDlgButtonChecked(hDlg, IDC_CHECK_DIV);
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_DATE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_PLACE), checked);
+            EnableWindow(GetDlgItem(hDlg, IDC_EDIT_DIV_TYPE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_DATE), checked);
             EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_PLACE), checked);
+            EnableWindow(GetDlgItem(hDlg, IDC_STATIC_DIV_TYPE), checked);
             break;
         }
         break;

@@ -682,6 +682,12 @@ read_ged(char *filename)
                                     if (ref != NULL)
                                         strcpy_s(ev->place, MAXSTR, ref);
                                 }
+                                else if (strcmp(tag, "TYPE") == 0)
+                                {
+                                    ref = strtok_s(NULL, "\n", &ctxt);
+                                    if (ref != NULL)
+                                        strcpy_s(ev->mtype, MAXSTR, ref);
+                                }
                                 lev = skip_ged(ged, 2);
                                 if (lev < 2)
                                     break;
@@ -1042,6 +1048,8 @@ write_ged(char *filename)
                 fprintf_s(ged, "2 DATE %s\n", ev->date);
             if (ev->place != NULL && ev->place[0] != '\0')
                 fprintf_s(ged, "2 PLAC %s\n", ev->place);
+            if (ev->mtype != NULL && ev->mtype[0] != '\0')
+                fprintf_s(ged, "2 TYPE %s\n", ev->mtype);
         }
         for (n = f->notes; n != NULL; n = n->next)
         {

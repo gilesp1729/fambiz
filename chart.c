@@ -489,13 +489,16 @@ draw_desc_boxes(HDC hdc, Person *p)
 
         // draw icon for any notes present on family
 
-        // draw any marriage/divorce dates.
+        // draw any marriage/divorce dates. If marriage has a type (e.g. partner) use that.
         y_event = s->ybox + box_height;
         for (ev = f->event; ev != NULL; ev = ev->next)
         {
             char buf[64];
 
-            sprintf_s(buf, 64, "%s %s %s", codes[ev->type].display, ev->date, ev->place);
+            if (ev->mtype[0] != '\0')
+                sprintf_s(buf, 64, "%s %s %s", ev->mtype, ev->date, ev->place);
+            else
+                sprintf_s(buf, 64, "%s %s %s", codes[ev->type].display, ev->date, ev->place);
             TextOut(hdc, s->xbox + small_space, y_event, buf, strlen(buf));
             y_event += char_height;
         }

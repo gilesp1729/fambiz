@@ -44,6 +44,8 @@ typedef struct Event
     char        date[MAXSTR];       // date and place if known
     char        place[MAXSTR];
     char        cause[MAXSTR];      // cause (of death)
+    char        mtype[MAXSTR];      // type (of relationship or separation; they all use the MARR/DIV event)
+                                    // e.g. Partner (for marriage) or Separation (for divorce)
     struct Event *next;             // points to next event in list
 } Event;
 
