@@ -123,6 +123,10 @@ LRESULT CALLBACK person_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             ev = find_event(EV_BIRTH, &p->event);
             strcpy_s(ev->date, MAXSTR, date);
             strcpy_s(ev->place, MAXSTR, place);
+            if (ev->date[0] != '\0')
+                p->lildate = parse_date_lilian(ev->date, FALSE);
+            else
+                p->lildate = 0;
 
             nd = GetDlgItemText(hDlg, IDC_EDIT_DEATH_DATE, date, MAXSTR);
             np = GetDlgItemText(hDlg, IDC_EDIT_DEATH_PLACE, place, MAXSTR);
@@ -292,10 +296,12 @@ LRESULT CALLBACK family_dialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 strcpy_s(ev->date, MAXSTR, date);
                 strcpy_s(ev->place, MAXSTR, place);
                 strcpy_s(ev->mtype, MAXSTR, mtype);
+                f->lildate = parse_date_lilian(ev->date, FALSE);
             }
             else
             {
                 remove_event(EV_MARRIAGE, &f->event);
+                f->lildate = 0;
             }
 
             nd = GetDlgItemText(hDlg, IDC_EDIT_DIV_DATE, date, MAXSTR);

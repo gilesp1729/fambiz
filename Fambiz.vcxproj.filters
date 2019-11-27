@@ -44,6 +44,9 @@
     <ClCompile Include="dialogs.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="julian.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Fambiz.rc">

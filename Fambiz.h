@@ -72,6 +72,7 @@ typedef struct Person
     char        occupation[MAXSTR]; // any occupation given
     Note        *notes;             // List of notes
     Event       *event;             // List of events (birth, death, etc) with dates/places
+    int         lildate;            // Lilian day number of person's birth date (use to sort children)
     Attachment  *attach;            // List of attachments (photos, documents)
     struct Family *family;          // Child to family link (the person is a child of this family)
     struct FamilyList *spouses;     // List of one or more families in which the person is a spouse
@@ -98,6 +99,7 @@ typedef struct Family
 {
     int         id;                 // Family ID number
     Event       *event;             // List of events (marriage, divorce, etc) with dates/places
+    int         lildate;            // Lilian day number of marriage date (use to sort spouse order)
     Note        *notes;             // List of notes
     Attachment  *attach;            // List of attachments (photos, documents)
     Person      *husband;           // Parents
@@ -200,3 +202,7 @@ Note **remove_note(Note *note, Note **note_list);
 Attachment **remove_attachment(Attachment *att, Attachment **att_list);
 void remove_personlist(Person *p, PersonList **person_list);
 void remove_familylist(Family *f, FamilyList **family_list);
+
+// julian.c
+int parse_date_lilian(char *date, BOOL US_format);
+

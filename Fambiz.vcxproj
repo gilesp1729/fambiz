@@ -94,6 +94,7 @@
     <ClCompile Include="dialogs.c" />
     <ClCompile Include="Fambiz.c" />
     <ClCompile Include="ged.c" />
+    <ClCompile Include="julian.c" />
     <ClCompile Include="stdafx.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

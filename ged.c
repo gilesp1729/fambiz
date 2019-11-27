@@ -54,6 +54,7 @@ PersonList *new_personlist(Person *p, PersonList *person_list)
     {
         PersonList *tail;
 
+        // TODO sort by lildate
         // Attach new pl to the tail (ensures file order is kept)
         for (tail = person_list; tail->next != NULL; tail = tail->next)
             ;
@@ -105,6 +106,7 @@ FamilyList *new_familylist(Family *f, FamilyList *family_list)
     {
         FamilyList *tail;
 
+        // TODO sort by lildate
         // Attach new pl to the tail (ensures file order is kept)
         for (tail = family_list; tail->next != NULL; tail = tail->next)
             ;
@@ -127,6 +129,7 @@ Event *new_event(EVENT type, Event **event_list)
     }
     else
     {
+        // TODO make sure births come before deaths, and marriages before divorces
         for (tail = *event_list; tail->next != NULL; tail = tail->next)
             ;
         tail->next = ev;
@@ -473,7 +476,12 @@ read_ged(char *filename)
                                 {
                                     ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
                                     if (ref != NULL)
+                                    {
                                         strcpy_s(ev->date, MAXSTR, ref);
+                                        // birthdates get translated to lilian
+                                        if (ev->type == EV_BIRTH)
+                                            p->lildate = parse_date_lilian(ev->date, FALSE);
+                                    }
                                 }
                                 else if (strcmp(tag, "PLAC") == 0)
                                 {
@@ -674,7 +682,12 @@ read_ged(char *filename)
                                 {
                                     ref = strtok_s(NULL, "\n", &ctxt);  // Note: can contain spaces
                                     if (ref != NULL)
+                                    {
                                         strcpy_s(ev->date, MAXSTR, ref);
+                                        // marriage dates get translated to lilian
+                                        if (ev->type == EV_MARRIAGE)
+                                            f->lildate = parse_date_lilian(ev->date, FALSE);
+                                    }
                                 }
                                 else if (strcmp(tag, "PLAC") == 0)
                                 {
