@@ -39,25 +39,28 @@ void register_person(Person *p)
         n_person = p->id;
 }
 
-// Create a person list struct and attach it to the tail. Return the head.
+// Create a person list struct and attach it to the given list in lildate order. 
+// Return the possibly changed list head.
 PersonList *new_personlist(Person *p, PersonList *person_list)
 {
     PersonList *pl = calloc(1, sizeof(PersonList));
 
     pl->p = p;
-    if (person_list == NULL)
+
+    // Check for insertion at the head of the list.
+    if (person_list == NULL || person_list->p->lildate > p->lildate)
     {
-        pl->next = NULL;
+        pl->next = person_list;
         return pl;
     }
     else
     {
         PersonList *tail;
 
-        // TODO sort by lildate
-        // Attach new pl to the tail (ensures file order is kept)
-        for (tail = person_list; tail->next != NULL; tail = tail->next)
+        // Insert by lildate when next item is later.
+        for (tail = person_list; tail->next != NULL && tail->next->p->lildate <= p->lildate; tail = tail->next)
             ;
+        pl->next = tail->next;
         tail->next = pl;
     }
     return person_list;
@@ -92,24 +95,28 @@ void register_family(Family *f)
         n_family = f->id;
 }
 
+// Create a family list struct and attach it to the given list in lildate order. 
+// Return the possibly changed list head.
 FamilyList *new_familylist(Family *f, FamilyList *family_list)
 {
     FamilyList *fl = calloc(1, sizeof(FamilyList));
 
     fl->f = f;
-    if (family_list == NULL)
+
+    // Check for insertion at the head of the list.
+    if (family_list == NULL || family_list->f->lildate > f->lildate)
     {
-        fl->next = NULL;
+        fl->next = family_list;
         return fl;
     }
     else
     {
         FamilyList *tail;
 
-        // TODO sort by lildate
-        // Attach new pl to the tail (ensures file order is kept)
-        for (tail = family_list; tail->next != NULL; tail = tail->next)
+        // Insert by lildate when next item is later.
+        for (tail = family_list; tail->next != NULL && tail->next->f->lildate <= f->lildate; tail = tail->next)
             ;
+        fl->next = tail->next;
         tail->next = fl;
     }
     return family_list;
@@ -621,7 +628,7 @@ read_ged(char *filename)
                     {
                     }
 #endif                    
-                    // todo BURI, BAPM, OCCU, etc. that can occur at level 1.
+                    // May also do BURI, BAPM, OCCU, etc. that can occur at level 1.
                     if (skip_ged(ged, 1) < 1)  
                         break;
                 }
@@ -818,7 +825,7 @@ read_ged(char *filename)
                             break;
                     }
 
-                    // TODO other family tags
+                    // Do other family tags here if thought useful.
                     if (skip_ged(ged, 1) < 1)
                         break;
                 }

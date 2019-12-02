@@ -72,11 +72,15 @@ int parse_date_lilian(char *input_date, BOOL US_format)
 
     strcpy_s(date, MAXSTR, input_date);     // copy it so strtok doesn't screw up original
     tok1 = strtok_s(date, " ,./-", &ctxt);
+    if (tok1 == NULL)
+        return 0;
     if (isalpha(tok1[0]))
     {
         // First token is a month name. Format is Mar 1970 or Mar 10, 1970.
         M = match_month(tok1);
         tok2 = strtok_s(NULL, " ,./-", &ctxt);
+        if (tok2 == NULL)
+            return 0;
         n = atoi(tok2);
         if (n > 1000)
         {
@@ -88,6 +92,8 @@ int parse_date_lilian(char *input_date, BOOL US_format)
             // It's a day number. Look for the year.
             D = n;
             tok3 = strtok_s(NULL, " ,./-", &ctxt);
+            if (tok3 == NULL)
+                return 0;
             n2 = atoi(tok3);
             if (n2 < 1000)
                 return 0;       // Not a year. Give up and return 0.
@@ -105,7 +111,9 @@ int parse_date_lilian(char *input_date, BOOL US_format)
         else
         {
             tok2 = strtok_s(NULL, " ,./-", &ctxt);
-            
+            if (tok2 == NULL)
+                return 0;
+
             // check for month name here
             if (isalpha(tok2[0]))
             {
@@ -140,6 +148,8 @@ int parse_date_lilian(char *input_date, BOOL US_format)
                         M = n2;
                     }
                     tok3 = strtok_s(NULL, " ,./-", &ctxt);
+                    if (tok3 == NULL)
+                        return 0;
                     n3 = atoi(tok3);
                     if (n3 < 1000)
                         return 0;       // Not a year. Give up and return 0.
@@ -151,7 +161,6 @@ int parse_date_lilian(char *input_date, BOOL US_format)
 
     lil = lilian(Y, M, D);
 
-#define DEBUG_JULIAN
 #ifdef DEBUG_JULIAN
     {
         char buf[MAXSTR];
