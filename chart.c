@@ -6,6 +6,8 @@
 #include <windowsx.h>
 #include <stdio.h>
 
+//#define DEBUG_JULIAN
+
 // Graphics stuff for charts.
 
 #define BOX_WIDTH       90
@@ -393,6 +395,10 @@ draw_box(HDC hdc, Person *p)
         if (ev->place != NULL && ev->place[0] != '\0')
             wrap_text_out(hdc, x_text, &y_text, ev->place, strlen(ev->place));
     }
+#ifdef DEBUG_JULIAN
+    sprintf_s(buf, MAXSTR, "%d", p->lildate);
+    wrap_text_out(hdc, x_text, &y_text, buf, strlen(buf));
+#endif
 
     // Put little icons at bottom right to indicate that there are notes or attachments.
     if (p->notes != NULL)
@@ -502,6 +508,13 @@ draw_desc_boxes(HDC hdc, Person *p)
             TextOut(hdc, s->xbox + small_space, y_event, buf, strlen(buf));
             y_event += char_height;
         }
+#ifdef DEBUG_JULIAN
+        {
+            char buf[MAXSTR];
+            sprintf_s(buf, MAXSTR, "%d", f->lildate);
+            TextOut(hdc, s->xbox + small_space, y_event, buf, strlen(buf));
+        }
+#endif
 
         if ((prefs->desc_limit == 0 || p->generation < prefs->desc_limit) && !p->hidden && !s->hidden)
         {
@@ -1895,18 +1908,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     {
                         Person *h = f->husband;
                         Person *w = f->wife;
+                        FamilyList *fl;
 
+                        // Assume h and w have the same Y-coordinates.
                         if (h->ybox < y_move && y_move < h->ybox + box_height)
                         {
-                            if 
-                            (
-                                h->xbox + box_width < x_move && x_move < w->xbox
-                                ||
-                                w->xbox + box_width < x_move && x_move < h->xbox
-                            )
+                            // Find the one with all the spouses (it will be on the left)
+                            if (h->xbox + box_width < x_move && x_move < w->xbox)
                             {
-                                highlight_family = f;
-                                break;
+                                // Go through the husband's spouses (the list is in lildate order)
+                                for (fl = h->spouses; fl != NULL; fl = fl->next)
+                                {
+                                    if (x_move < fl->f->wife->xbox)
+                                    {
+                                        highlight_family = fl->f;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (w->xbox + box_width < x_move && x_move < h->xbox)
+                            {
+                                // Similarly if the wife is the one on the left
+                                for (fl = w->spouses; fl != NULL; fl = fl->next)
+                                {
+                                    if (x_move < fl->f->husband->xbox)
+                                    {
+                                        highlight_family = fl->f;
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }

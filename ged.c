@@ -651,7 +651,7 @@ read_ged(char *filename)
                         id = atoi(&ref[2]);
                         p = find_person(id);
                         f->husband = p;
-                        p->spouses = new_familylist(f, p->spouses);
+                      //  p->spouses = new_familylist(f, p->spouses);
                     }
                     else if (strcmp(tag, "WIFE") == 0)
                     {
@@ -659,7 +659,7 @@ read_ged(char *filename)
                         id = atoi(&ref[2]);
                         p = find_person(id);
                         f->wife = p;
-                        p->spouses = new_familylist(f, p->spouses);
+                      //  p->spouses = new_familylist(f, p->spouses);
                     }
                     else if (strcmp(tag, "CHIL") == 0)
                     {
@@ -829,6 +829,12 @@ read_ged(char *filename)
                     if (skip_ged(ged, 1) < 1)
                         break;
                 }
+
+                // Defer this till now so that the family's lildate is known.
+                if (f->husband != NULL)
+                    f->husband->spouses = new_familylist(f, f->husband->spouses);
+                if (f->wife != NULL)
+                    f->wife->spouses = new_familylist(f, f->wife->spouses);
             }
         }
         else if (strcmp(ref, "_VIEW") == 0)     // This is a Fambiz file with view parameters, possibly multiple
