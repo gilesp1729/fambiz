@@ -636,7 +636,7 @@ read_ged(char *filename)
             else if (strcmp(tag, "FAM") == 0)   // The families come after the persons they refer to. Is this always true?
             {
                 Family *f = find_family(id);
-                Person *p;
+                Person *p = NULL;
                 int lev;
 
                 skip_ged(ged, 1);       // absorb the first level number

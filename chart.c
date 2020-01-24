@@ -893,7 +893,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     BITMAP bmp;
     BITMAPINFOHEADER bi;
     HMENU hMenu;
-    HFONT hFont, hFontLarge, hFontOld;
+    HFONT hFont = NULL;
+    HFONT hFontLarge = NULL;
+    HFONT hFontOld;
     HPEN hPenOld;
     OPENFILENAME ofn;
     static PRINTDLG prd;
