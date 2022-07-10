@@ -536,6 +536,7 @@ void load_prefs(HWND hDlg, ViewPrefs *prefs)
     SetDlgItemText(hDlg, IDC_PREFS_TITLE, prefs->title);
     SetDlgItemInt(hDlg, IDC_PREFS_DESCLIMIT, prefs->desc_limit, FALSE);
     SetDlgItemInt(hDlg, IDC_PREFS_ANCLIMIT, prefs->anc_limit, FALSE);
+    root_index = 0;
     for (i = 1; i <= n_person; i++)
     {
         Person *p = lookup_person[i];
