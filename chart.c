@@ -457,6 +457,7 @@ draw_desc_boxes(HDC hdc, Person *p)
     FamilyList *fl;
     Event *ev;
     int x_line, y_line, y_event;
+    int descent_spacing = 0;
 
     draw_box(hdc, p);
     prev = p;
@@ -524,7 +525,7 @@ draw_desc_boxes(HDC hdc, Person *p)
                 //x_line = (s->xbox + prev->xbox + box_width) / 2;
                 x_line = s->xbox - min_spacing / 2;                     // TODO this could go the other way for long marriage lines, also do in ancestors
                 MoveToEx(hdc, x_line, y_line, NULL);
-                y_line = p->ybox + box_height + min_spacing / 2;
+                y_line = p->ybox + box_height + min_spacing / 2 + descent_spacing;
                 LineTo(hdc, x_line, y_line);
             }
 
@@ -539,6 +540,7 @@ draw_desc_boxes(HDC hdc, Person *p)
             }
         }
         prev = s;
+        descent_spacing = 2 * small_space;   // Descent tree for 2nd and subsequent marriage drawn lower to save confusion
     }
 }
 
